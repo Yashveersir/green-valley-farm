@@ -64,6 +64,18 @@ app.use('/api/products', (req, res, next) => {
   next();
 });
 
+// Status & Diagnosis Route
+app.get('/api/status', async (req, res) => {
+  const uri = process.env.MONGODB_URI ? 'Present ✅' : 'NOT FOUND ❌';
+  const connected = await db.connectDB();
+  res.json({
+    env_uri: uri,
+    db_connected: connected ? 'Yes ✅' : 'No ❌',
+    store_initialized: store.isInitialized ? 'Yes ✅' : 'No ❌',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Farm info
 app.get('/api/farm', (req, res) => {
   res.json({
