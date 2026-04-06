@@ -48,6 +48,11 @@
     <section class="page page-home active" id="page-home">
       <div class="hero" id="hero-section">
         <div class="hero-bg"><img src="/images/hero-banner.png" alt="Farm" class="hero-img"><div class="hero-overlay"></div></div>
+        <div style="position:absolute; bottom:40px; right:40px; text-align:right; z-index:10; background:rgba(10,26,16,0.6); backdrop-filter:blur(8px); padding:16px 24px; border-radius:12px; border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.9); box-shadow:0 8px 24px rgba(0,0,0,0.3);">
+          <div style="font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--accent); margin-bottom:6px;">Farm Leadership</div>
+          <div style="font-size:16px; font-weight:700;">Owned by ANJIV SINGH</div>
+          <div style="font-size:13px; font-weight:400; opacity:0.8; margin-top:2px;">Managed by Yashveer Singh</div>
+        </div>
         <div class="hero-content">
           <span class="hero-badge">🌿 100% Free-Range & Organic</span>
           <h1 class="hero-title">Farm-Fresh Poultry,<br>Delivered with <span class="text-accent">Care</span></h1>
@@ -61,15 +66,8 @@
         </div>
       </div>
       <div class="products-header" id="products-section">
-        <div style="display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:16px;">
-          <div>
-            <h2 class="section-title" style="margin-bottom:8px;">Our <span class="text-accent">Products</span></h2>
-            <p class="section-desc" style="margin-bottom:0;">Handpicked poultry products from our farm</p>
-          </div>
-          <div style="font-size:12px; font-weight:700; color:var(--text-secondary); text-align:right; text-transform:uppercase; letter-spacing:0.5px; background:var(--bg-surface); padding:8px 16px; border-radius:30px; border:1px solid rgba(212,167,69,0.2);">
-            Owned by <span style="color:var(--text);">ANJIV SINGH</span> <span style="margin:0 6px;color:var(--accent);">•</span> Managed by <span style="color:var(--text);">Yashveer Singh</span>
-          </div>
-        </div>
+        <h2 class="section-title">Our <span class="text-accent">Products</span></h2>
+        <p class="section-desc">Handpicked poultry products from our farm</p>
         <div class="category-filters" id="category-filters">
           <button class="cat-btn active" data-category="all" onclick="App.filterCategory('all')"><span class="cat-icon">🏠</span> All</button>
           <button class="cat-btn" data-category="live-birds" onclick="App.filterCategory('live-birds')"><span class="cat-icon">🐔</span> Live Birds</button>
