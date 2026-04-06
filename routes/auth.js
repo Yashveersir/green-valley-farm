@@ -3,19 +3,19 @@ const router = express.Router();
 const store = require('../models/store');
 
 // POST /api/auth/send-otp
-router.post('/send-otp', (req, res) => {
+router.post('/send-otp', async (req, res) => {
   const { email, action, userData } = req.body;
   if (!email || !action) return res.status(400).json({ success: false, error: 'Email and action required' });
-  const result = store.sendAuthOtp(email, { action, userData });
+  const result = await store.sendAuthOtp(email, { action, userData });
   if (result.error) return res.status(400).json({ success: false, error: result.error });
-  res.json({ success: true });
+  res.json({ success: true, otpToken: result.otpToken });
 });
 
 // POST /api/auth/verify-otp
 router.post('/verify-otp', (req, res) => {
-  const { email, otp } = req.body;
+  const { email, otp, otpToken } = req.body;
   if (!email || !otp) return res.status(400).json({ success: false, error: 'Email and OTP required' });
-  const result = store.verifyAuthOtp(email, otp);
+  const result = store.verifyAuthOtp(email, otp, otpToken);
   if (result.error) return res.status(400).json({ success: false, error: result.error });
   res.json({ success: true, ...result });
 });
@@ -28,7 +28,7 @@ router.post('/reset-password', (req, res) => {
   if (newPassword.length < 6) return res.status(400).json({ success: false, error: 'Password must be at least 6 characters' });
 
   // Leverage the existing logic; we verify the OTP the exact same way
-  const result = store.verifyAuthOtp(email, otp, 'reset-password');
+  const result = store.verifyAuthOtp(email, otp, req.body.otpToken);
   if (result.error) return res.status(400).json({ success: false, error: result.error });
   
   // Actually execute the password mutation on the validated user entity

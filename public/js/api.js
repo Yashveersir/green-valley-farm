@@ -28,10 +28,15 @@ const API = {
 
   // Auth
   async sendOtp(email, action, userData) {
-    return this.request('/auth/send-otp', { method: 'POST', body: JSON.stringify({ email, action, userData }) });
+    const data = await this.request('/auth/send-otp', { method: 'POST', body: JSON.stringify({ email, action, userData }) });
+    // Store the otpToken for stateless verification on serverless platforms
+    if (data.otpToken) sessionStorage.setItem('gvf_otpToken', data.otpToken);
+    return data;
   },
   async verifyOtp(email, otp) {
-    const data = await this.request('/auth/verify-otp', { method: 'POST', body: JSON.stringify({ email, otp }) });
+    const otpToken = sessionStorage.getItem('gvf_otpToken') || '';
+    const data = await this.request('/auth/verify-otp', { method: 'POST', body: JSON.stringify({ email, otp, otpToken }) });
+    sessionStorage.removeItem('gvf_otpToken');
     this.setToken(data.token); this.setUser(data.user);
     return data;
   },
