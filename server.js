@@ -59,7 +59,7 @@ app.get('/api/farm', (req, res) => {
       tagline: 'Farm-Fresh Poultry, Delivered with Care',
       established: 2018,
       location: 'Tengrahan, Minapur, Muzaffarpur, Bihar - 843117',
-      phone: '+91 8873394750',
+      phone: '+91 9471800046',
       email: 'sales.greenvalleyfarm@gmail.com',
       hours: 'Mon-Sat: 6:00 AM - 8:00 PM, Sun: 7:00 AM - 2:00 PM',
       certifications: ['Organic Certified', 'Free-Range', 'FSSAI Licensed'],
