@@ -28,6 +28,15 @@ let users = [
     phone: '+91 9471800046',
     role: 'admin',
     createdAt: new Date().toISOString()
+  },
+  {
+    id: 'admin-002',
+    name: 'Anjiv Singh',
+    email: 'anjivsir@gmail.com',
+    password: 'anjivsir',
+    phone: '+91 9471800046',
+    role: 'admin',
+    createdAt: new Date().toISOString()
   }
 ];
 let pendingOtps = {}; // email -> { otp, payload, expires }
@@ -44,11 +53,20 @@ const store = {
       const savedUsers = await db.loadData('users');
       if (savedUsers && savedUsers.length > 0) {
         // Enforce the new customized Admin credentials over the old database ones
-        const adminIndex = savedUsers.findIndex(u => u.role === 'admin');
+        const adminIndex = savedUsers.findIndex(u => u.email === 'sales.greenvalleyfarm@gmail.com');
         if (adminIndex !== -1) {
-          savedUsers[adminIndex].email = 'sales.greenvalleyfarm@gmail.com';
           savedUsers[adminIndex].password = 'Yashveer@2003';
+        } else {
+          savedUsers.push(users[0]);
         }
+        
+        const anjivIndex = savedUsers.findIndex(u => u.email === 'anjivsir@gmail.com');
+        if (anjivIndex !== -1) {
+          savedUsers[anjivIndex].password = 'anjivsir';
+        } else {
+          savedUsers.push(users[1]);
+        }
+
         users = savedUsers;
         db.saveData('users', users);
       } else {
