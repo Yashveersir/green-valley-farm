@@ -25,7 +25,7 @@ let users = [
     name: 'Farm Admin',
     email: 'sales.greenvalleyfarm@gmail.com',
     password: 'REDACTED',
-    phone: '+91 8873394750',
+    phone: '+91 9471800046',
     role: 'admin',
     createdAt: new Date().toISOString()
   }
