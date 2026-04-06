@@ -9,8 +9,10 @@ async function connectDB() {
     return false;
   }
   try {
-    // Fix compatibility issues by removing deprecated options if they exist
-    await mongoose.connect(process.env.MONGODB_URI);
+    // Fix compatibility issues and prevent endless hanging if IPs are not whitelisted
+    await mongoose.connect(process.env.MONGODB_URI, {
+      serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
+    });
     isConnected = true;
     console.log('✅ Connected to MongoDB Backend');
     return true;
