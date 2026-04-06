@@ -12,10 +12,6 @@
   <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
-  <!-- TOP BANNER -->
-  <div style="background:var(--accent);color:#000;text-align:center;padding:8px 16px;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;box-shadow:0 1px 4px rgba(0,0,0,0.15);position:relative;z-index:200;">
-    Owned by ANJIV SINGH <span style="margin:0 8px;opacity:0.5;">•</span> Managed by Yashveer Singh
-  </div>
   <header class="header" id="main-header">
     <div class="header-inner">
       <a href="#" class="logo" onclick="App.navigate('home')">
@@ -65,8 +61,15 @@
         </div>
       </div>
       <div class="products-header" id="products-section">
-        <h2 class="section-title">Our <span class="text-accent">Products</span></h2>
-        <p class="section-desc">Handpicked poultry products from our farm</p>
+        <div style="display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:16px;">
+          <div>
+            <h2 class="section-title" style="margin-bottom:8px;">Our <span class="text-accent">Products</span></h2>
+            <p class="section-desc" style="margin-bottom:0;">Handpicked poultry products from our farm</p>
+          </div>
+          <div style="font-size:12px; font-weight:700; color:var(--text-secondary); text-align:right; text-transform:uppercase; letter-spacing:0.5px; background:var(--bg-surface); padding:8px 16px; border-radius:30px; border:1px solid rgba(212,167,69,0.2);">
+            Owned by <span style="color:var(--text);">ANJIV SINGH</span> <span style="margin:0 6px;color:var(--accent);">•</span> Managed by <span style="color:var(--text);">Yashveer Singh</span>
+          </div>
+        </div>
         <div class="category-filters" id="category-filters">
           <button class="cat-btn active" data-category="all" onclick="App.filterCategory('all')"><span class="cat-icon">🏠</span> All</button>
           <button class="cat-btn" data-category="live-birds" onclick="App.filterCategory('live-birds')"><span class="cat-icon">🐔</span> Live Birds</button>
