@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Green Valley Poultry Farm — Fresh poultry delivered with care.">
+  <title>Green Valley Poultry Farm</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/png" href="/images/logo.png">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <header class="header" id="main-header">
+    <div class="header-inner">
+      <a href="#" class="logo" onclick="App.navigate('home')">
+        <img src="/images/logo.png" alt="Logo" style="height:42px;width:42px;object-fit:cover;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
+        <div class="logo-text"><span class="logo-name">Green Valley</span><span class="logo-sub">Poultry Farm</span></div>
+      </a>
+      <nav class="nav" id="main-nav">
+        <a href="#" class="nav-link active" data-page="home" onclick="App.navigate('home')">Shop</a>
+        <a href="#" class="nav-link" data-page="about" onclick="App.navigate('about')">Our Farm</a>
+        <a href="#" class="nav-link" data-page="orders" onclick="App.navigate('orders')">My Orders</a>
+      </nav>
+      <div class="header-actions">
+        <div class="search-wrapper" id="search-wrapper">
+          <button class="icon-btn search-toggle" id="search-toggle" aria-label="Search">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          </button>
+          <input type="text" class="search-input" id="search-input" placeholder="Search products...">
+        </div>
+        <button class="cart-btn" id="cart-btn" onclick="App.navigate('cart')" aria-label="View Cart">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+          <span class="cart-badge" id="cart-badge">0</span>
+        </button>
+        <div class="auth-area" id="auth-area">
+          <button class="btn btn-sm btn-primary" id="login-btn" onclick="App.showModal('login')">Login</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="toast-container" id="toast-container"></div>
+
+  <main class="main" id="main-content">
+    <!-- HOME -->
+    <section class="page page-home active" id="page-home">
+      <div class="hero" id="hero-section">
+        <div class="hero-bg"><img src="/images/hero-banner.png" alt="Farm" class="hero-img"><div class="hero-overlay"></div></div>
+        <div class="hero-content">
+          <span class="hero-badge">🌿 100% Free-Range & Organic</span>
+          <h1 class="hero-title">Farm-Fresh Poultry,<br>Delivered with <span class="text-accent">Care</span></h1>
+          <p class="hero-desc">From our pastures to your plate — premium poultry raised the natural way.</p>
+          <div class="hero-stats">
+            <div class="stat"><span class="stat-num">15+</span><span class="stat-label">Products</span></div>
+            <div class="stat"><span class="stat-num">25</span><span class="stat-label">Acres</span></div>
+            <div class="stat"><span class="stat-num">2018</span><span class="stat-label">Est.</span></div>
+          </div>
+          <button class="btn btn-primary btn-lg hero-cta" onclick="document.getElementById('products-section').scrollIntoView({behavior:'smooth'})">Browse Products ↓</button>
+        </div>
+      </div>
+      <div class="products-header" id="products-section">
+        <h2 class="section-title">Our <span class="text-accent">Products</span></h2>
+        <p class="section-desc">Handpicked poultry products from our farm</p>
+        <div class="category-filters" id="category-filters">
+          <button class="cat-btn active" data-category="all" onclick="App.filterCategory('all')"><span class="cat-icon">🏠</span> All</button>
+          <button class="cat-btn" data-category="live-birds" onclick="App.filterCategory('live-birds')"><span class="cat-icon">🐔</span> Live Birds</button>
+          <button class="cat-btn" data-category="eggs" onclick="App.filterCategory('eggs')"><span class="cat-icon">🥚</span> Eggs</button>
+          <button class="cat-btn" data-category="cuts" onclick="App.filterCategory('cuts')"><span class="cat-icon">🍗</span> Cuts & Parts</button>
+        </div>
+      </div>
+      <div class="products-grid" id="products-grid"></div>
+      <div class="loading-spinner" id="loading-spinner"><div class="spinner"></div><p>Loading products...</p></div>
+    </section>
+    <!-- CART -->
+    <section class="page page-cart" id="page-cart">
+      <div class="page-header">
+        <button class="back-btn" onclick="App.navigate('home')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg> Back to Shop</button>
+        <h2 class="section-title">Your <span class="text-accent">Cart</span></h2>
+      </div>
+      <div class="cart-layout"><div class="cart-items" id="cart-items"></div><div class="cart-summary" id="cart-summary"></div></div>
+      <div class="empty-state" id="cart-empty" style="display:none;"><span class="empty-icon">🛒</span><h3>Your cart is empty</h3><p>Browse our products and add items to cart.</p><button class="btn btn-primary" onclick="App.navigate('home')">Browse Products</button></div>
+    </section>
+    <!-- CHECKOUT -->
+    <section class="page page-checkout" id="page-checkout">
+      <div class="page-header">
+        <button class="back-btn" onclick="App.navigate('cart')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg> Back to Cart</button>
+        <h2 class="section-title">Checkout</h2>
+      </div>
+      <div class="checkout-layout">
+        <form class="checkout-form" id="checkout-form" onsubmit="App.placeOrder(event)">
+          <div class="form-section">
+            <h3 class="form-section-title">📋 Delivery Details</h3>
+            <div class="form-group"><label for="customer-name">Full Name</label><input type="text" id="customer-name" placeholder="Your full name" required></div>
+            <div class="form-group"><label for="customer-phone">Phone</label><input type="tel" id="customer-phone" placeholder="+91 8873394750" required></div>
+            <div class="form-group"><label for="customer-address">Address</label><textarea id="customer-address" rows="3" placeholder="Full delivery address" required></textarea></div>
+          </div>
+          <div class="form-section">
+            <h3 class="form-section-title">💵 Payment Method</h3>
+            <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:16px;">
+              <label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+                <input type="radio" name="payment-method" value="COD" checked onclick="document.getElementById('upi-panel').style.display='none'">
+                <strong>Cash on Delivery (COD)</strong>
+              </label>
+              <label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+                <input type="radio" name="payment-method" value="UPI" onclick="document.getElementById('upi-panel').style.display='block'">
+                <strong>UPI Payment (Free)</strong>
+              </label>
+            </div>
+            
+            <div id="upi-panel" style="display:none; background:var(--bg-surface); padding:16px; border-radius:var(--radius); border:1px solid var(--border-subtle); margin-bottom:16px;">
+              <p style="font-size:14px; margin-bottom:12px;">Send payment securely using any UPI app (GPay, PhonePe, Paytm):</p>
+              <div style="text-align:center; margin-bottom:16px;">
+                <img src="/images/qr.jpg" alt="UPI QR Code" style="width:200px; height:auto; border-radius:12px; box-shadow:0 6px 16px rgba(0,0,0,0.15); border:4px solid white;">
+              </div>
+              <div style="background:var(--bg-card); padding:12px; border:1px dashed var(--border); border-radius:var(--radius); text-align:center; font-family:monospace; margin-bottom:12px; font-size:16px; letter-spacing:0.5px;">
+                <strong>greenvalleyfarm@axl</strong>
+              </div>
+              <div class="form-group">
+                <label for="upi-utr">Enter 12-Digit UTR/Reference No. <span style="color:var(--danger)">*</span></label>
+                <input type="text" id="upi-utr" placeholder="e.g. 312345678901" maxlength="12" minlength="12">
+              </div>
+              <div class="form-group" style="margin-top:12px;">
+                <label for="upi-screenshot">Upload Payment Screenshot <span style="color:var(--danger)">*</span></label>
+                <input type="file" id="upi-screenshot" accept="image/*" style="padding:10px; background:var(--bg-card); border:1px solid var(--border-subtle); border-radius:var(--radius); width:100%;">
+              </div>
+              <p style="font-size:12px; color:var(--text-muted); margin-top:10px;">Please hit 'Place Order' strictly after payment is successful. The order will be manually verified by Admin.</p>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary btn-lg btn-block" id="place-order-btn">✓ Place Order</button>
+        </form>
+        <div class="checkout-summary" id="checkout-summary"></div>
+      </div>
+    </section>
+    <!-- ORDER SUCCESS -->
+    <section class="page page-success" id="page-success"><div class="success-content" id="success-content"></div></section>
+    <!-- ORDERS -->
+    <section class="page page-orders" id="page-orders">
+      <div class="page-header"><h2 class="section-title">My <span class="text-accent">Orders</span></h2></div>
+      <div class="orders-list" id="orders-list"></div>
+      <div class="empty-state" id="orders-empty" style="display:none;"><span class="empty-icon">📦</span><h3>No orders yet</h3><p>Place your first order to see it here.</p><button class="btn btn-primary" onclick="App.navigate('home')">Start Shopping</button></div>
+    </section>
+    <!-- ABOUT -->
+    <section class="page page-about" id="page-about">
+      <div class="about-hero"><img src="/images/hero-banner.png" alt="Farm" class="about-img"><div class="about-overlay"></div><div class="about-hero-text"><h2>Our <span class="text-accent">Farm</span></h2><p>Where tradition meets quality</p></div></div>
+      <div class="about-content" id="about-content"></div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <div class="footer-brand"><span class="logo-icon">🐔</span><div><strong>Green Valley Poultry Farm</strong><p>Farm-Fresh Poultry, Delivered with Care</p></div></div>
+      <div class="footer-links">
+        <div class="footer-col"><h4>Quick Links</h4><a href="#" onclick="App.navigate('home')">Shop</a><a href="#" onclick="App.navigate('about')">Our Farm</a><a href="#" onclick="App.navigate('orders')">My Orders</a></div>
+        <div class="footer-col"><h4>Categories</h4><a href="#" onclick="App.filterCategory('live-birds');App.navigate('home')">Live Birds</a><a href="#" onclick="App.filterCategory('eggs');App.navigate('home')">Eggs</a><a href="#" onclick="App.filterCategory('cuts');App.navigate('home')">Cuts & Parts</a></div>
+        <div class="footer-col"><h4>Contact</h4><p><a href="tel:8873394750" style="color:var(--text);text-decoration:none;">📞 +91 8873394750</a></p><p><a href="mailto:sales.greenvalleyfarm@gmail.com" style="color:var(--text);text-decoration:none;">📧 sales.greenvalleyfarm@gmail.com</a></p><p><a href="https://www.google.com/maps/place/Green+Valley+Poultry+Farm/@26.2929519,85.3947712,17z/data=!4m14!1m7!3m6!1s0x39ed1dd0ddeaf6e5:0xeb79e79b089a853f!2sGreen+Valley+Poultry+Farm!8m2!3d26.2929519!4d85.3947712!16s%2Fg%2F11sbq_4t46!3m5!1s0x39ed1dd0ddeaf6e5:0xeb79e79b089a853f!8m2!3d26.2929519!4d85.3947712!16s%2Fg%2F11sbq_4t46?entry=ttu&g_ep=EgoyMDI2MDQwMS4wIKXMDSoASAFQAw%3D%3D" target="_blank" style="color:var(--text);text-decoration:none;">📍 Tengrahan, Minapur, Muzaffarpur, Bihar - 843117</a></p></div>
+        <div class="footer-col">
+          <h4>Find Us On Map</h4>
+          <div style="cursor:pointer; display:inline-flex; align-items:center; gap:10px; background:#fff; padding:10px 16px; border-radius:30px; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" onclick="window.open('https://www.google.com/maps/place/Green+Valley+Poultry+Farm/@26.2929519,85.3947712,17z/data=!4m14!1m7!3m6!1s0x39ed1dd0ddeaf6e5:0xeb79e79b089a853f!2sGreen+Valley+Poultry+Farm!8m2!3d26.2929519!4d85.3947712!16s%2Fg%2F11sbq_4t46!3m5!1s0x39ed1dd0ddeaf6e5:0xeb79e79b089a853f!8m2!3d26.2929519!4d85.3947712!16s%2Fg%2F11sbq_4t46?entry=ttu&g_ep=EgoyMDI2MDQwMS4wIKXMDSoASAFQAw%3D%3D', '_blank')">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 2C8.13 2 5 5.13 5 9C5 14.25 12 22 12 22C12 22 19 14.25 19 9C19 5.13 15.87 2 12 2ZM12 11.5C10.62 11.5 9.5 10.38 9.5 9C9.5 7.62 10.62 6.5 12 6.5C13.38 6.5 14.5 7.62 14.5 9C14.5 10.38 13.38 11.5 12 11.5Z" fill="#EA4335"/>
+              <path d="M12 2C15.87 2 19 5.13 19 9C19 10.85 18.21 12.87 17.15 14.93L12 6.5L6.85 14.93C5.79 12.87 5 10.85 5 9C5 5.13 8.13 2 12 2Z" fill="#4285F4" opacity="0.8"/>
+            </svg>
+            <span style="color:#333; font-weight:700; font-size:14px;">Open in Google Maps</span>
+          </div>
+        </div>
+      </div>
+      <div class="footer-bottom"><p>© 2024 Green Valley Poultry Farm. 🌿 Organic & Free-Range since 2018</p></div>
+    </div>
+  </footer>
+
+  <!-- LOGIN MODAL -->
+  <div class="modal-overlay" id="modal-login" style="display:none;">
+    <div class="modal">
+      <button class="modal-close" onclick="App.closeModals()">&times;</button>
+      <h2 class="modal-title">Welcome Back</h2>
+      <p class="modal-desc">Login to your account</p>
+      
+      <!-- Tabs for Email vs OTP Login -->
+      <div style="display:flex;gap:10px;margin-bottom:20px;">
+        <button class="btn btn-sm btn-block" style="background:var(--bg-surface);color:var(--text)" onclick="document.getElementById('login-pass-form').style.display='block';document.getElementById('login-otp-form').style.display='none';">Use Password</button>
+        <button class="btn btn-sm btn-block" style="background:var(--primary-dark);color:var(--accent);border:1px solid var(--accent)" onclick="document.getElementById('login-pass-form').style.display='none';document.getElementById('login-otp-form').style.display='block';">Use Email OTP</button>
+      </div>
+
+      <form id="login-pass-form" onsubmit="App.handleLogin(event)">
+        <div class="form-group"><label>Email</label><input type="email" id="login-email" placeholder="your@email.com" required></div>
+        <div class="form-group">
+          <label style="display:flex;justify-content:space-between"><span>Password</span> <a href="#" style="font-size:12px;font-weight:normal;" onclick="App.showModal('forgot')">Forgot Password?</a></label>
+          <input type="password" id="login-password" placeholder="Your password" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block btn-lg" id="login-submit">Login</button>
+      </form>
+
+      <form id="login-otp-form" style="display:none;" onsubmit="App.handleLoginOtp(event)">
+        <div class="form-group"><label>Email Address</label><input type="email" id="login-otp-email" placeholder="your@email.com" required></div>
+        <button type="submit" class="btn btn-primary btn-block btn-lg" id="login-otp-submit">Send Auth Code</button>
+      </form>
+
+      <p class="modal-switch">Don't have an account? <a href="#" onclick="App.showModal('register')">Register</a></p>
+    </div>
+  </div>
+
+  <!-- FORGOT PASSWORD MODAL -->
+  <div class="modal-overlay" id="modal-forgot" style="display:none;">
+    <div class="modal">
+      <button class="modal-close" onclick="App.closeModals()">&times;</button>
+      <h2 class="modal-title">Reset Password</h2>
+      <p class="modal-desc">Verify your email to create a new password</p>
+      
+      <!-- Step 1: Send OTP -->
+      <form id="forgot-step-1" onsubmit="App.handleForgotOtp(event)" style="display:block;">
+        <div class="form-group"><label>Email Address</label><input type="email" id="forgot-email" placeholder="your@email.com" required></div>
+        <button type="submit" class="btn btn-primary btn-block btn-lg" id="forgot-submit">Send Reset OTP</button>
+      </form>
+
+      <!-- Step 2: Verify OTP & Change Password -->
+      <form id="forgot-step-2" onsubmit="App.handleForgotReset(event)" style="display:none;">
+        <div class="form-group"><label>Enter OTP Code</label><input type="text" id="forgot-otp" placeholder="1234" maxlength="4" style="text-align:center;letter-spacing:10px;font-size:24px;font-weight:bold" required></div>
+        <div class="form-group"><label>New Password</label><input type="password" id="forgot-password" placeholder="Min 6 characters" required></div>
+        <button type="submit" class="btn btn-primary btn-block btn-lg" id="forgot-reset-btn">Reset & Login</button>
+      </form>
+
+      <p class="modal-switch"><a href="#" onclick="App.showModal('login')">← Back to Login</a></p>
+    </div>
+  </div>
+
+  <!-- REGISTER MODAL -->
+  <div class="modal-overlay" id="modal-register" style="display:none;">
+    <div class="modal">
+      <button class="modal-close" onclick="App.closeModals()">&times;</button>
+      <h2 class="modal-title">Create Account</h2>
+      <p class="modal-desc">Join Green Valley Farm</p>
+      <form onsubmit="App.handleRegisterRequest(event)">
+        <div class="form-group"><label>Full Name</label><input type="text" id="reg-name" placeholder="Your name" required></div>
+        <div class="form-group"><label>Email Address (For Verification)</label><input type="email" id="reg-email" placeholder="your@email.com" required></div>
+        <div class="form-group"><label>Phone Number</label><input type="tel" id="reg-phone" placeholder="8873394750" required></div>
+        <div class="form-group"><label>Password</label><input type="password" id="reg-password" placeholder="Create password" required minlength="4"></div>
+        <button type="submit" class="btn btn-primary btn-block btn-lg" id="reg-submit">Verify Email</button>
+      </form>
+      <p class="modal-switch">Already have an account? <a href="#" onclick="App.showModal('login')">Login</a></p>
+    </div>
+  </div>
+
+  <!-- OTP VERIFICATION MODAL -->
+  <div class="modal-overlay" id="modal-otp" style="display:none;">
+    <div class="modal" style="text-align:center;">
+      <button class="modal-close" onclick="App.closeModals()">&times;</button>
+      <h2 class="modal-title">Enter OTP</h2>
+      <p class="modal-desc">We sent a secret code to <strong id="verify-email-show"></strong><br><small style="color:var(--text-muted)">Check your inbox or spam folder</small></p>
+      <form onsubmit="App.handleOtpSubmit(event)">
+        <input type="hidden" id="verify-email">
+        <div class="form-group" style="margin-bottom:24px;">
+          <input type="text" id="verify-code" placeholder="0000" maxlength="4" style="font-size:32px;letter-spacing:12px;text-align:center;padding:16px;font-weight:bold" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block btn-lg" id="verify-submit">Verify & Continue</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- PROFILE MODAL -->
+  <div class="modal-overlay" id="modal-profile" style="display:none;">
+    <div class="modal">
+      <button class="modal-close" onclick="App.closeModals()">&times;</button>
+      <h2 class="modal-title">My Profile</h2>
+      <p class="modal-desc">Manage your account details</p>
+      <form onsubmit="App.handleProfileUpdate(event)">
+        <div class="form-group"><label>Email Address</label><input type="email" id="profile-email" disabled style="background:var(--bg-document);cursor:not-allowed"></div>
+        <div class="form-group"><label>Full Name</label><input type="text" id="profile-name" required></div>
+        <div class="form-group"><label>Phone Number</label><input type="tel" id="profile-phone" required></div>
+        <div class="form-group"><label>Change Password <small style="color:var(--text-muted);font-weight:normal">(Leave blank to keep current)</small></label><input type="password" id="profile-password" placeholder="New password (optional)"></div>
+        <button type="submit" class="btn btn-primary btn-block btn-lg" id="profile-submit">Save Changes</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>
