@@ -1,8 +1,12 @@
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 const nodemailer = require('nodemailer');
 const db = require('./db');
+
+// Secret key for HMAC OTP verification (works without server-side state)
+const OTP_SECRET = process.env.MONGODB_URI ? process.env.MONGODB_URI.slice(-20) : 'greenvalley-otp-secret-2024';
 
 const mailer = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
@@ -101,12 +105,20 @@ const store = {
     return true;
   },
 
-  // ══════ OTP & AUTH ══════
+  // ══════ OTP & AUTH (Stateless HMAC - Works on Vercel Serverless) ══════
+  _generateOtpHash(email, otp, expires) {
+    return crypto.createHmac('sha256', OTP_SECRET).update(`${email}:${otp}:${expires}`).digest('hex');
+  },
+
   async sendAuthOtp(email, payload) {
     if (!email) return { error: 'Email address is required' };
     const cleanEmail = email.trim().toLowerCase();
     const otp = Math.floor(1000 + Math.random() * 9000).toString();
-    pendingOtps[cleanEmail] = { otp, payload, expires: Date.now() + 5 * 60000 };
+    const expires = Date.now() + 5 * 60000; // 5 minutes
+    const hash = this._generateOtpHash(cleanEmail, otp, expires);
+    
+    // Also store in memory as fallback (works when same instance handles both requests)
+    pendingOtps[cleanEmail] = { otp, payload, expires };
     
     const messageBody = `Your Green Valley Poultry Farm OTP is: ${otp}. It is valid for 5 minutes. Please do not share this code.`;
     
@@ -123,28 +135,47 @@ const store = {
         console.error('[Nodemailer Email Error]:', err.message);
       }
     } else {
-      console.log(`
-========================================
-📧 MOCK EMAIL NOTIFICATION SENT TO: ${cleanEmail}
-========================================
-${messageBody}
-========================================
-[NOTE: Configure SMTP_USER and SMTP_PASS in .env]
-========================================`);
+      console.log(`[MOCK EMAIL] OTP for ${cleanEmail}: ${otp}`);
     }
-    return { success: true };
+    // Return hash + expires + payload encoded so client can send it back for stateless verification
+    const payloadEncoded = Buffer.from(JSON.stringify(payload)).toString('base64');
+    return { success: true, otpToken: `${hash}:${expires}:${payloadEncoded}` };
   },
 
-  verifyAuthOtp(email, otp) {
+  verifyAuthOtp(email, otp, otpToken) {
     const cleanEmail = (email || '').trim().toLowerCase();
     const cleanOtp = (otp || '').trim();
-    const record = pendingOtps[cleanEmail];
-    if (!record || record.otp !== cleanOtp || record.expires < Date.now()) {
-      return { error: 'Invalid or expired OTP' };
-    }
-    const payload = record.payload;
-    delete pendingOtps[cleanEmail];
     
+    // METHOD 1: Try in-memory first (same serverless instance)
+    const record = pendingOtps[cleanEmail];
+    if (record && record.otp === cleanOtp && record.expires > Date.now()) {
+      const payload = record.payload;
+      delete pendingOtps[cleanEmail];
+      return this._executeOtpAction(cleanEmail, payload);
+    }
+    
+    // METHOD 2: Stateless HMAC verification (different serverless instance)
+    if (otpToken) {
+      const parts = otpToken.split(':');
+      if (parts.length >= 3) {
+        const [hash, expiresStr, ...payloadParts] = parts;
+        const expires = parseInt(expiresStr);
+        const payloadEncoded = payloadParts.join(':');
+        
+        if (Date.now() > expires) return { error: 'OTP has expired. Please request a new one.' };
+        
+        const expectedHash = this._generateOtpHash(cleanEmail, cleanOtp, expires);
+        if (hash === expectedHash) {
+          const payload = JSON.parse(Buffer.from(payloadEncoded, 'base64').toString());
+          return this._executeOtpAction(cleanEmail, payload);
+        }
+      }
+    }
+    
+    return { error: 'Invalid or expired OTP' };
+  },
+
+  _executeOtpAction(cleanEmail, payload) {
     if (payload.action === 'register') {
       return this.registerUser(payload.userData);
     } else if (payload.action === 'login') {

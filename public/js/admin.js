@@ -68,9 +68,10 @@ const AdminApp = {
     btn.disabled = true; btn.textContent = 'Sending...';
     try {
       const email = document.getElementById('admin-otp-email').value.trim();
-      await API.request('/auth/send-otp', {
+      const data = await API.request('/auth/send-otp', {
         method: 'POST', body: JSON.stringify({ email, action: 'login' })
       });
+      if (data.otpToken) sessionStorage.setItem('gvf_otpToken', data.otpToken);
       document.getElementById('admin-otp-form').style.display = 'none';
       document.getElementById('admin-otp-verify-form').style.display = 'block';
       this.toast('OTP sent to your email!');
