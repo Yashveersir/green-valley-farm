@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const store = require('./models/store');
+const db = require('./models/db');
 
 const authRouter = require('./routes/auth');
 const productsRouter = require('./routes/products');
@@ -14,8 +15,16 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
+
+// ── Store initialization (non-blocking) ──
+// On Vercel, we fire-and-forget the init. It runs in the background.
+// If it finishes before the first DB-dependent request, great.
+// If not, the store falls back to in-memory defaults (hardcoded admins + products.json).
+let initPromise = store.init().catch(err => {
+  console.error('Store init error (non-fatal):', err.message);
+});
 
 // Auth middleware — attaches userId to req if valid token present
 function authMiddleware(req, res, next) {
@@ -33,20 +42,6 @@ function adminOnly(req, res, next) {
   next();
 }
 
-// Ensurer middleware — ensures store is initialized before any API request
-let initPromise = null;
-async function ensureInit(req, res, next) {
-  if (!initPromise) initPromise = store.init();
-  try {
-    await initPromise;
-    next();
-  } catch (err) {
-    console.error('Initialization Error:', err.message);
-    next(); // Continue even if failed (will use memory fallback)
-  }
-}
-
-app.use(ensureInit);
 app.use(authMiddleware);
 
 // Routes
@@ -64,14 +59,15 @@ app.use('/api/products', (req, res, next) => {
   next();
 });
 
-// Status & Diagnosis Route
-app.get('/api/status', async (req, res) => {
-  const uri = process.env.MONGODB_URI ? 'Present ✅' : 'NOT FOUND ❌';
-  const connected = await db.connectDB();
+// Status & Diagnosis Route (non-blocking, instant response)
+app.get('/api/status', (req, res) => {
   res.json({
-    env_uri: uri,
-    db_connected: connected ? 'Yes ✅' : 'No ❌',
-    store_initialized: store.isInitialized ? 'Yes ✅' : 'No ❌',
+    server: 'Running ✅',
+    env_mongodb_uri: process.env.MONGODB_URI ? 'Present ✅' : 'NOT FOUND ❌',
+    env_smtp_user: process.env.SMTP_USER ? 'Present ✅' : 'NOT FOUND ❌',
+    env_smtp_pass: process.env.SMTP_PASS ? 'Present ✅' : 'NOT FOUND ❌',
+    env_smtp_host: process.env.SMTP_HOST ? 'Present ✅' : 'NOT FOUND ❌',
+    store_initialized: store.isInitialized ? 'Yes ✅' : 'No ❌ (DB may still be connecting...)',
     timestamp: new Date().toISOString()
   });
 });
@@ -98,12 +94,8 @@ app.get('/api/farm', (req, res) => {
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 
-// Removed the top-level store.init() to prevent race conditions on Vercel.
-// The ensureInit middleware will perfectly handle the Cold Start connection!
-
 // Start local server only if NOT running on Vercel
-if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
-  initPromise = store.init();
+if (!process.env.VERCEL) {
   initPromise.then(() => {
     app.listen(PORT, () => {
       console.log(`\n  🐔  Green Valley Poultry Farm Server`);
