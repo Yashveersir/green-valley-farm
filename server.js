@@ -33,6 +33,20 @@ function adminOnly(req, res, next) {
   next();
 }
 
+// Ensurer middleware — ensures store is initialized before any API request
+let initPromise = null;
+async function ensureInit(req, res, next) {
+  if (!initPromise) initPromise = store.init();
+  try {
+    await initPromise;
+    next();
+  } catch (err) {
+    console.error('Initialization Error:', err.message);
+    next(); // Continue even if failed (will use memory fallback)
+  }
+}
+
+app.use(ensureInit);
 app.use(authMiddleware);
 
 // Routes
