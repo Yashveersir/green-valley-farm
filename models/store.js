@@ -11,9 +11,8 @@ const mailer = nodemailer.createTransport({
   auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
 });
 
-// Load products from JSON
-const productsPath = path.join(__dirname, '..', 'data', 'products.json');
-let products = JSON.parse(fs.readFileSync(productsPath, 'utf-8'));
+// Load products (using require ensures it is bundled by Vercel)
+let products = require('../data/products.json');
 
 // ── In-memory data ──
 let carts = {};       // userId -> cart items[]
