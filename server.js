@@ -98,17 +98,20 @@ app.get('/api/farm', (req, res) => {
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 
-// Initialize data store asynchronously
-store.init().catch(err => console.error('Failed to initialize store:', err.message));
+// Removed the top-level store.init() to prevent race conditions on Vercel.
+// The ensureInit middleware will perfectly handle the Cold Start connection!
 
 // Start local server only if NOT running on Vercel
-if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
-  app.listen(PORT, () => {
-    console.log(`\n  🐔  Green Valley Poultry Farm Server`);
-    console.log(`  ──────────────────────────────────────`);
-    console.log(`  🌐  Local: http://localhost:${PORT}`);
-    console.log(`  ──────────────────────────────────────\n`);
-  });
+if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
+  initPromise = store.init();
+  initPromise.then(() => {
+    app.listen(PORT, () => {
+      console.log(`\n  🐔  Green Valley Poultry Farm Server`);
+      console.log(`  ──────────────────────────────────────`);
+      console.log(`  🌐  Local: http://localhost:${PORT}`);
+      console.log(`  ──────────────────────────────────────\n`);
+    });
+  }).catch(err => console.error('Local init failed:', err.message));
 }
 
 // CRITICAL for Vercel: Export the express app as a module
