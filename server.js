@@ -72,14 +72,18 @@ app.get('/api/farm', (req, res) => {
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 
-store.init().then(() => {
+// Initialize data store asynchronously
+store.init().catch(err => console.error('Failed to initialize store:', err.message));
+
+// Start local server only if NOT running on Vercel
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
   app.listen(PORT, () => {
     console.log(`\n  🐔  Green Valley Poultry Farm Server`);
     console.log(`  ──────────────────────────────────────`);
-    console.log(`  🌐  Customer: http://localhost:${PORT}`);
-    console.log(`  🔐  Admin:    http://localhost:${PORT}/admin.html`);
-    console.log(`  ──────────────────────────────────────`);
-    console.log(`  👤  Admin Login: sales.greenvalleyfarm@gmail.com / Yashveer@2003`);
+    console.log(`  🌐  Local: http://localhost:${PORT}`);
     console.log(`  ──────────────────────────────────────\n`);
   });
-});
+}
+
+// CRITICAL for Vercel: Export the express app as a module
+module.exports = app;
