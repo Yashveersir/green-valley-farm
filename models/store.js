@@ -42,8 +42,10 @@ let pendingOtps = {}; // email -> { otp, payload, expires }
 let tokens = {}; // token -> userId
 
 const store = {
+  isInitialized: false,
   // ══════ DATABASE INIT ══════
   async init() {
+    if (this.isInitialized) return true;
     const connected = await db.connectDB();
     if (connected) {
       // Forcefully generate the empty collection folders in MongoDB so they show up in Compass!
