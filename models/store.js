@@ -46,50 +46,59 @@ const store = {
   // ══════ DATABASE INIT ══════
   async init() {
     if (this.isInitialized) return true;
-    const connected = await db.connectDB();
-    if (connected) {
-      // Forcefully generate the empty collection folders in MongoDB so they show up in Compass!
-      await db.bootstrapCollections(['users', 'orders', 'carts', 'notifications', 'products', 'pendingOtps']);
+    try {
+      const connected = await db.connectDB();
+      if (connected) {
+        console.log('[Store] MongoDB connected, loading data...');
+        await db.bootstrapCollections(['users', 'orders', 'carts', 'notifications', 'products', 'pendingOtps']);
 
-      const savedUsers = await db.loadData('users');
-      if (savedUsers && savedUsers.length > 0) {
-        // Enforce the new customized Admin credentials over the old database ones
-        const adminIndex = savedUsers.findIndex(u => u.email === 'sales.greenvalleyfarm@gmail.com');
-        if (adminIndex !== -1) {
-          savedUsers[adminIndex].password = 'REDACTED';
+        const savedUsers = await db.loadData('users');
+        if (savedUsers && savedUsers.length > 0) {
+          const adminIndex = savedUsers.findIndex(u => u.email === 'sales.greenvalleyfarm@gmail.com');
+          if (adminIndex !== -1) {
+            savedUsers[adminIndex].password = 'REDACTED';
+          } else {
+            savedUsers.push(users[0]);
+          }
+          
+          const anjivIndex = savedUsers.findIndex(u => u.email === 'REDACTED@gmail.com');
+          if (anjivIndex !== -1) {
+            savedUsers[anjivIndex].password = 'REDACTED';
+          } else {
+            savedUsers.push(users[1]);
+          }
+
+          users = savedUsers;
+          db.saveData('users', users);
         } else {
-          savedUsers.push(users[0]);
+          db.saveData('users', users);
         }
         
-        const anjivIndex = savedUsers.findIndex(u => u.email === 'REDACTED@gmail.com');
-        if (anjivIndex !== -1) {
-          savedUsers[anjivIndex].password = 'REDACTED';
+        const savedOrders = await db.loadData('orders');
+        if (savedOrders) orders = savedOrders;
+
+        const savedCarts = await db.loadData('carts');
+        if (savedCarts) carts = savedCarts;
+
+        const savedNotifs = await db.loadData('notifications');
+        if (savedNotifs) notifications = savedNotifs;
+        
+        const savedProducts = await db.loadData('products');
+        if (savedProducts && savedProducts.length > 0) {
+          products = savedProducts;
         } else {
-          savedUsers.push(users[1]);
+          db.saveData('products', products);
         }
-
-        users = savedUsers;
-        db.saveData('users', users);
+        console.log('[Store] All data loaded from MongoDB ✅');
       } else {
-        db.saveData('users', users); // Seed admin user
+        console.log('[Store] MongoDB not available, using in-memory defaults (admins + products.json)');
       }
-      
-      const savedOrders = await db.loadData('orders');
-      if (savedOrders) orders = savedOrders;
-
-      const savedCarts = await db.loadData('carts');
-      if (savedCarts) carts = savedCarts;
-
-      const savedNotifs = await db.loadData('notifications');
-      if (savedNotifs) notifications = savedNotifs;
-      
-      const savedProducts = await db.loadData('products');
-      if (savedProducts && savedProducts.length > 0) {
-        products = savedProducts;
-      } else {
-        db.saveData('products', products); // Seed JSON products to Atlas
-      }
+    } catch (err) {
+      console.error('[Store] Init error (non-fatal):', err.message);
     }
+    // ALWAYS mark as initialized so we don't retry and so login works immediately
+    this.isInitialized = true;
+    return true;
   },
 
   // ══════ OTP & AUTH ══════
