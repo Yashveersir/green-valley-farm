@@ -18,13 +18,19 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ── Store initialization (non-blocking) ──
-// On Vercel, we fire-and-forget the init. It runs in the background.
-// If it finishes before the first DB-dependent request, great.
-// If not, the store falls back to in-memory defaults (hardcoded admins + products.json).
-let initPromise = store.init().catch(err => {
-  console.error('Store init error (non-fatal):', err.message);
-});
+// ── Store initialization (Blocking for API Routes) ──
+let initPromise = null;
+async function ensureInit(req, res, next) {
+  if (!initPromise) initPromise = store.init();
+  try {
+    await initPromise;
+  } catch (err) {
+    console.error('Store init error (non-fatal):', err.message);
+  }
+  next();
+}
+
+app.use('/api', ensureInit);
 
 // Auth middleware — attaches userId to req if valid token present
 function authMiddleware(req, res, next) {
@@ -119,6 +125,7 @@ app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'adm
 
 // Start local server only if NOT running on Vercel
 if (!process.env.VERCEL) {
+  if (!initPromise) initPromise = store.init();
   initPromise.then(() => {
     app.listen(PORT, () => {
       console.log(`\n  🐔  Green Valley Poultry Farm Server`);
