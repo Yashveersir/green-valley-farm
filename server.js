@@ -67,9 +67,32 @@ app.get('/api/status', (req, res) => {
     env_smtp_user: process.env.SMTP_USER ? 'Present ✅' : 'NOT FOUND ❌',
     env_smtp_pass: process.env.SMTP_PASS ? 'Present ✅' : 'NOT FOUND ❌',
     env_smtp_host: process.env.SMTP_HOST ? 'Present ✅' : 'NOT FOUND ❌',
-    store_initialized: store.isInitialized ? 'Yes ✅' : 'No ❌ (DB may still be connecting...)',
+    store_initialized: store.isInitialized ? 'Yes ✅' : 'No ❌',
+    db_connected: store.dbConnected ? 'Yes ✅' : 'No ❌',
     timestamp: new Date().toISOString()
   });
+});
+
+// DB Test endpoint - shows the exact MongoDB error
+app.get('/api/db-test', async (req, res) => {
+  try {
+    const mongoose = require('mongoose');
+    if (mongoose.connection.readyState === 1) {
+      return res.json({ status: 'Already connected ✅', readyState: mongoose.connection.readyState });
+    }
+    await mongoose.connect(process.env.MONGODB_URI, { serverSelectionTimeoutMS: 5000 });
+    res.json({ status: 'Connected successfully ✅' });
+  } catch (err) {
+    res.json({ 
+      status: 'FAILED ❌', 
+      error: err.message,
+      hint: err.message.includes('ENOTFOUND') ? 'DNS issue - check MongoDB URI spelling' :
+            err.message.includes('authentication') ? 'Wrong password in MongoDB URI' :
+            err.message.includes('connect ECONNREFUSED') ? 'MongoDB Atlas IP whitelist blocking Vercel' :
+            err.message.includes('Server selection timed out') ? 'MongoDB Atlas IP whitelist BLOCKING Vercel - Add 0.0.0.0/0 in Network Access' :
+            'Unknown error - check MongoDB Atlas dashboard'
+    });
+  }
 });
 
 // Farm info
