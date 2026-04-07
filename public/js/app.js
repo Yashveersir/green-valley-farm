@@ -306,7 +306,11 @@ const App = {
       if (p.stock <= 0) { sc = 'out-of-stock'; st = 'Out of Stock'; }
       else if (p.stock <= 20) { sc = 'low-stock'; st = `Only ${p.stock} left`; }
       return `<div class="product-card" style="animation:fadeInUp 0.4s ease ${i*0.05}s both">
-        <div class="product-card-img ${p.category}"><span>${p.emoji}</span><span class="stock-badge ${sc}">${st}</span></div>
+        <div class="product-card-img ${p.category}" style="${p.imageUrl ? `background-image: url('${p.imageUrl}'); background-size: cover; background-position: center; position: relative; overflow: hidden;` : ''}">
+          <div style="${p.imageUrl ? 'position: absolute; inset: 0; background: linear-gradient(0deg, rgba(0,0,0,0.6) 0%, transparent 40%);' : ''}"></div>
+          ${!p.imageUrl ? `<span>${p.emoji}</span>` : ''}
+          <span class="stock-badge ${sc}">${st}</span>
+        </div>
         <div class="product-card-body">
           <div class="product-card-tags">${p.tags.slice(0,2).map(t=>`<span class="product-tag">${t}</span>`).join('')}</div>
           <h3 class="product-card-name">${p.name}</h3>
@@ -314,10 +318,41 @@ const App = {
           <div class="product-card-meta"><span>⚖️ ${p.weight}</span><span>📍 ${(p.farmOrigin||'').split(' - ')[1]||p.farmOrigin}</span></div>
           <div class="product-card-footer">
             <div class="product-card-price">₹${p.price} <small>/ ${p.unit}</small></div>
-            <button class="add-to-cart-btn" id="atc-${p.id}" onclick="App.addToCart('${p.id}')" ${p.stock<=0?'disabled style="opacity:.4;pointer-events:none"':''}>🛒 Add</button>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <button class="btn btn-outline btn-sm" onclick="App.viewProductDetails('${p.id}')">Details</button>
+              <button class="add-to-cart-btn btn-sm" style="flex:1;padding:8px 12px;border:none;" id="atc-${p.id}" onclick="App.addToCart('${p.id}')" ${p.stock<=0?'disabled style="opacity:.4;pointer-events:none"':''}>🛒 Add</button>
+            </div>
           </div>
         </div></div>`;
     }).join('');
+  },
+
+  async viewProductDetails(id) {
+    try {
+      const res = await API.request(`/products/${id}`);
+      const p = res.product;
+      if (!p) return;
+      document.getElementById('pd-img').style.backgroundImage = `url('${p.imageUrl}')`;
+      document.getElementById('pd-name').textContent = p.name;
+      document.getElementById('pd-tags').innerHTML = p.tags.map(t=>`<span class="product-tag">${t}</span>`).join('');
+      document.getElementById('pd-price').textContent = `₹${p.price} / ${p.unit}`;
+      document.getElementById('pd-desc').textContent = p.description;
+      document.getElementById('pd-weight').textContent = p.weight;
+      document.getElementById('pd-farm').textContent = p.farmOrigin;
+      const stockBadge = document.getElementById('pd-stock');
+      if (p.stock <= 0) {
+        stockBadge.className = 'stock-badge out-of-stock'; stockBadge.textContent = 'Out of Stock';
+        document.getElementById('pd-add-btn').disabled = true;
+        document.getElementById('pd-add-btn').style.opacity = '0.4';
+      } else {
+        stockBadge.className = p.stock <= 20 ? 'stock-badge low-stock' : 'stock-badge in-stock';
+        stockBadge.textContent = p.stock <= 20 ? `Only ${p.stock} left` : 'In Stock';
+        document.getElementById('pd-add-btn').disabled = false;
+        document.getElementById('pd-add-btn').style.opacity = '1';
+        document.getElementById('pd-add-btn').onclick = () => { App.addToCart(p.id); App.closeModals(); };
+      }
+      this.showModal('product-details');
+    } catch (err) { }
   },
 
   // ── Cart ──
@@ -493,7 +528,60 @@ const App = {
   async loadAbout() {
     try {
       const data = await API.getFarmInfo(); const f = data.farm;
-      document.getElementById('about-content').innerHTML = `<p style="font-size:17px;color:var(--text-secondary);line-height:1.8;margin-bottom:32px">${f.description}</p>
+      document.getElementById('about-content').innerHTML = `
+        <p style="font-size:17px;color:var(--text-secondary);line-height:1.8;margin-bottom:32px">${f.description}</p>
+        
+        <!-- Video Showcase -->
+        <div class="farm-video-wrapper">
+          <div class="farm-video-container">
+            <video id="farm-video-about" autoplay muted loop controls playsinline poster="/myImage/InShot_20260407_084631044.jpg.jpeg">
+              <source src="/myImage/InShot_20260407_085446488.mp4" type="video/mp4">
+              Your browser does not support the video tag.
+            </video>
+            <div class="farm-video-overlay" style="pointer-events:none;">
+              <span class="farm-video-badge">🎬 Live from our farm</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Photo Gallery -->
+        <h3 style="margin-top:40px; margin-bottom:20px; font-family:'Playfair Display', serif; font-size:24px;">Life at <span class="text-accent">Our Farm</span></h3>
+        <div class="farm-photo-grid">
+          <div class="farm-photo-item farm-photo-large">
+            <img src="/myImage/InShot_20260407_084631044.jpg.jpeg" alt="Panoramic green valley view of our farm" loading="lazy">
+            <div class="farm-photo-caption">Our Farm's Green Valley</div>
+          </div>
+          <div class="farm-photo-item">
+            <img src="/myImage/InShot_20260407_084700576.jpg.jpeg" alt="Baby chick held gently in hand" loading="lazy">
+            <div class="farm-photo-caption">Raised with Care</div>
+          </div>
+          <div class="farm-photo-item">
+            <img src="/myImage/InShot_20260407_084008098.jpg.jpeg" alt="Healthy baby chick close-up" loading="lazy">
+            <div class="farm-photo-caption">Healthy Chicks</div>
+          </div>
+          <div class="farm-photo-item farm-photo-wide">
+            <img src="/myImage/InShot_20260407_084027529.jpg.jpeg" alt="Inside our warm poultry house" loading="lazy">
+            <div class="farm-photo-caption">Our Warm Poultry House</div>
+          </div>
+          <div class="farm-photo-item">
+            <img src="/myImage/InShot_20260407_084730614.jpg.jpeg" alt="Chicks feeding naturally" loading="lazy">
+            <div class="farm-photo-caption">Natural Feeding</div>
+          </div>
+          <div class="farm-photo-item">
+            <img src="/myImage/InShot_20260407_084259574.jpg.jpeg" alt="Chicks under heat lamp" loading="lazy">
+            <div class="farm-photo-caption">Brooding Area</div>
+          </div>
+          <div class="farm-photo-item">
+            <img src="/myImage/InShot_20260407_084823526.jpg.jpeg" alt="Farm poultry house exterior" loading="lazy">
+            <div class="farm-photo-caption">Our Farm House</div>
+          </div>
+          <div class="farm-photo-item">
+            <img src="/myImage/InShot_20260407_085003082.jpg.jpeg" alt="Farm equipment and supplies collage" loading="lazy">
+            <div class="farm-photo-caption">Quality Equipment</div>
+          </div>
+        </div>
+
+        <h3 style="margin-top:60px; margin-bottom:20px; font-family:'Playfair Display', serif; font-size:24px;">Farm <span class="text-accent">Details</span></h3>
         <div class="about-grid">
           <div class="about-card"><div class="about-card-icon">📍</div><h4>Location</h4><p><a href="https://www.google.com/maps/place/Green+Valley+Poultry+Farm/@26.2929519,85.3947712,17z/data=!4m14!1m7!3m6!1s0x39ed1dd0ddeaf6e5:0xeb79e79b089a853f!2sGreen+Valley+Poultry+Farm!8m2!3d26.2929519!4d85.3947712!16s%2Fg%2F11sbq_4t46!3m5!1s0x39ed1dd0ddeaf6e5:0xeb79e79b089a853f!8m2!3d26.2929519!4d85.3947712!16s%2Fg%2F11sbq_4t46?entry=ttu&g_ep=EgoyMDI2MDQwMS4wIKXMDSoASAFQAw%3D%3D" target="_blank" style="color:inherit;text-decoration:none;">${f.location}</a></p></div>
           <div class="about-card"><div class="about-card-icon">📞</div><h4>Phone</h4><p><a href="tel:${f.phone.replace(/[^0-9+]/g, '')}" style="color:inherit;text-decoration:none;">${f.phone}</a></p></div>

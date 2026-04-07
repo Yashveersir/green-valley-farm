@@ -225,10 +225,15 @@ const store = {
   },
 
   async _executeOtpAction(cleanEmail, payload) {
+    // Robust sync before actions to prevent duplicates/missing users on serverless
+    if (this.dbConnected) {
+      const freshUsers = await db.loadData('users');
+      if (freshUsers) users = freshUsers;
+    }
     if (payload.action === 'register') {
       return await this.registerUser(payload.userData);
     } else if (payload.action === 'login') {
-      const user = users.find(u => u.email.toLowerCase() === cleanEmail);
+      const user = users.find(u => (u.email || '').toLowerCase() === cleanEmail);
       if (!user) return { error: 'No account found with this email' };
       const token = createStatelessToken(user.id);
       const { password: _, ...safe } = user;
@@ -252,6 +257,12 @@ const store = {
   async registerUser({ name, email, password, phone }) {
     const cleanEmail = (email || '').trim().toLowerCase();
     if (!name || !cleanEmail || !password) return { error: 'Name, email, and password are required' };
+    
+    if (this.dbConnected) {
+      const freshUsers = await db.loadData('users');
+      if (freshUsers) users = freshUsers;
+    }
+    
     if (users.find(u => (u.email || '').toLowerCase().trim() === cleanEmail)) return { error: 'Email already registered' };
     const user = {
       id: `user-${uuidv4().slice(0, 8)}`,
