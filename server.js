@@ -18,7 +18,9 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ── Store initialization (Blocking for API Routes) ──
+// ── Store initialization (Blocking for ALL API Routes) ──
+// CRITICAL: This must run before authMiddleware so customer users are loaded from DB
+// before token verification is attempted. Without this, customer tokens always fail.
 let initPromise = null;
 async function ensureInit(req, res, next) {
   if (!initPromise) initPromise = store.init();
@@ -29,8 +31,6 @@ async function ensureInit(req, res, next) {
   }
   next();
 }
-
-app.use('/api', ensureInit);
 
 // Auth middleware — attaches userId to req if valid token present
 function authMiddleware(req, res, next) {
@@ -48,7 +48,8 @@ function adminOnly(req, res, next) {
   next();
 }
 
-app.use(authMiddleware);
+// Apply ensureInit THEN authMiddleware to ALL /api routes (order matters!)
+app.use('/api', ensureInit, authMiddleware);
 
 // Routes
 app.use('/api/auth', authRouter);
