@@ -88,23 +88,36 @@ const store = {
         if (savedUsers && savedUsers.length > 0) {
           let needsSave = false;
 
-          const adminIndex = savedUsers.findIndex(u => u.email === 'sales.greenvalleyfarm@gmail.com');
+          // DEDUPLICATION: Clean up existing database duplicates
+          const uniqueUsers = [];
+          const seenEmails = new Set();
+          for (const u of savedUsers) {
+            const emailKey = (u.email || '').toLowerCase().trim();
+            if (emailKey && !seenEmails.has(emailKey)) {
+              seenEmails.add(emailKey);
+              uniqueUsers.push(u);
+            } else {
+              needsSave = true; // Found a duplicate or empty email, will force a cleanup save
+            }
+          }
+
+          const adminIndex = uniqueUsers.findIndex(u => (u.email || '').toLowerCase() === 'sales.greenvalleyfarm@gmail.com');
           if (adminIndex !== -1) {
-            savedUsers[adminIndex].password = 'Yashveer@2003';
+            uniqueUsers[adminIndex].password = 'Yashveer@2003';
           } else {
-            savedUsers.push(users[0]);
+            uniqueUsers.push(users[0]);
             needsSave = true;
           }
           
-          const anjivIndex = savedUsers.findIndex(u => u.email === 'anjivsir@gmail.com');
+          const anjivIndex = uniqueUsers.findIndex(u => (u.email || '').toLowerCase() === 'anjivsir@gmail.com');
           if (anjivIndex !== -1) {
-            savedUsers[anjivIndex].password = 'anjivsir';
+            uniqueUsers[anjivIndex].password = 'anjivsir';
           } else {
-            savedUsers.push(users[1]);
+            uniqueUsers.push(users[1]);
             needsSave = true;
           }
 
-          users = savedUsers;
+          users = uniqueUsers;
           if (needsSave) {
             await db.saveData('users', users);
           }
@@ -237,11 +250,12 @@ const store = {
   },
 
   async registerUser({ name, email, password, phone }) {
-    if (!name || !email || !password) return { error: 'Name, email, and password are required' };
-    if (users.find(u => u.email === email)) return { error: 'Email already registered' };
+    const cleanEmail = (email || '').trim().toLowerCase();
+    if (!name || !cleanEmail || !password) return { error: 'Name, email, and password are required' };
+    if (users.find(u => (u.email || '').toLowerCase().trim() === cleanEmail)) return { error: 'Email already registered' };
     const user = {
       id: `user-${uuidv4().slice(0, 8)}`,
-      name, email, password, phone: phone || '',
+      name, email: cleanEmail, password, phone: phone || '',
       role: 'customer',
       createdAt: new Date().toISOString()
     };
