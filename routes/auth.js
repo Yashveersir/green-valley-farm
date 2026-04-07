@@ -22,13 +22,13 @@ router.post('/verify-otp', async (req, res) => {
 
 // POST /api/auth/reset-password
 router.post('/reset-password', async (req, res) => {
-  const { email, otp, newPassword } = req.body;
+  const { email, otp, newPassword, otpToken } = req.body;
   if (!email || !otp || !newPassword) return res.status(400).json({ success: false, error: 'Email, OTP, and new Password required' });
   
   if (newPassword.length < 6) return res.status(400).json({ success: false, error: 'Password must be at least 6 characters' });
 
   // Leverage the existing logic; we verify the OTP the exact same way
-  const result = await store.verifyAuthOtp(email, otp, req.body.otpToken);
+  const result = await store.verifyAuthOtp(email, otp, otpToken);
   if (result.error) return res.status(400).json({ success: false, error: result.error });
   
   // Actually execute the password mutation on the validated user entity
