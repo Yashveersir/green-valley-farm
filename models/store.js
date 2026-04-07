@@ -265,11 +265,22 @@ const store = {
     return { user: safe, token };
   },
 
-  verifyToken(token) {
+  async verifyToken(token) {
     // Try stateless HMAC token first
     const userId = verifyStatelessToken(token);
     if (userId) {
-      const user = users.find(u => u.id === userId);
+      let user = users.find(u => u.id === userId);
+      
+      // SERVERLESS STALE-MEMORY FIX: If user not in RAM, they might have been created/updated 
+      // on a different lambda instance. Reload users from DB to be absolutely sure!
+      if (!user && this.dbConnected) {
+        const freshUsers = await db.loadData('users');
+        if (freshUsers) {
+          users = freshUsers; // Sync RAM
+          user = users.find(u => u.id === userId);
+        }
+      }
+
       if (user) {
         const { password: _, ...safe } = user;
         return safe;
@@ -278,7 +289,14 @@ const store = {
     // Fallback: old in-memory tokens (for same-instance requests)
     const oldUserId = tokens[token];
     if (oldUserId) {
-      const user = users.find(u => u.id === oldUserId);
+      let user = users.find(u => u.id === oldUserId);
+      if (!user && this.dbConnected) {
+        const freshUsers = await db.loadData('users');
+        if (freshUsers) {
+          users = freshUsers;
+          user = users.find(u => u.id === oldUserId);
+        }
+      }
       if (user) {
         const { password: _, ...safe } = user;
         return safe;
