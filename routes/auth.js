@@ -57,10 +57,10 @@ router.post('/login', (req, res) => {
 });
 
 // GET /api/auth/me
-router.get('/me', (req, res) => {
+router.get('/me', async (req, res) => {
   const token = req.headers.authorization?.replace('Bearer ', '');
   if (!token) return res.status(401).json({ success: false, error: 'Not authenticated' });
-  const user = store.verifyToken(token);
+  const user = await store.verifyToken(token);
   if (!user) return res.status(401).json({ success: false, error: 'Invalid token' });
   res.json({ success: true, user });
 });
@@ -76,7 +76,7 @@ router.post('/logout', (req, res) => {
 router.put('/profile', async (req, res) => {
   const token = req.headers.authorization?.replace('Bearer ', '');
   if (!token) return res.status(401).json({ success: false, error: 'Not authenticated' });
-  const user = store.verifyToken(token);
+  const user = await store.verifyToken(token);
   if (!user) return res.status(401).json({ success: false, error: 'Invalid token' });
   
   const { name, phone, newPassword } = req.body;

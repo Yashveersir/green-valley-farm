@@ -33,10 +33,10 @@ async function ensureInit(req, res, next) {
 }
 
 // Auth middleware — attaches userId to req if valid token present
-function authMiddleware(req, res, next) {
+async function authMiddleware(req, res, next) {
   const token = req.headers.authorization?.replace('Bearer ', '');
   if (token) {
-    const user = store.verifyToken(token);
+    const user = await store.verifyToken(token);
     if (user) { req.userId = user.id; req.userRole = user.role; req.user = user; }
   }
   next();
