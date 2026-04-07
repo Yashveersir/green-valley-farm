@@ -5,24 +5,33 @@ const { v4: uuidv4 } = require('uuid');
 const nodemailer = require('nodemailer');
 const db = require('./db');
 
-// Secret key for HMAC verification (works without server-side state on Vercel)
-const HMAC_SECRET = process.env.MONGODB_URI ? process.env.MONGODB_URI.slice(-20) : 'greenvalley-secret-2024';
-const OTP_SECRET = HMAC_SECRET;
+// LAZY secret getter - ensures env vars are loaded before use
+function getHmacSecret() {
+  return process.env.MONGODB_URI ? process.env.MONGODB_URI.slice(-20) : 'greenvalley-secret-2024';
+}
 
-// Stateless token helpers
+// Stateless token helpers (base64-encoded userId:timestamp:signature)
 function createStatelessToken(userId) {
   const ts = Date.now();
-  const sig = crypto.createHmac('sha256', HMAC_SECRET).update(`${userId}:${ts}`).digest('hex').slice(0, 16);
-  return Buffer.from(`${userId}:${ts}:${sig}`).toString('base64');
+  const secret = getHmacSecret();
+  const sig = crypto.createHmac('sha256', secret).update(`${userId}:${ts}`).digest('hex').slice(0, 16);
+  return Buffer.from(`${userId}:${ts}:${sig}`).toString('base64url');
 }
-function verifyStatelessToken(token) {
+function verifyStatelessToken(raw) {
   try {
-    const decoded = Buffer.from(token, 'base64').toString();
-    const [userId, ts, sig] = decoded.split(':');
-    const expected = crypto.createHmac('sha256', HMAC_SECRET).update(`${userId}:${ts}`).digest('hex').slice(0, 16);
+    // Support both base64url (new) and base64 (old)
+    const decoded = Buffer.from(raw, 'base64url').toString();
+    const lastColon = decoded.lastIndexOf(':');
+    const firstColon = decoded.indexOf(':');
+    if (firstColon === -1 || firstColon === lastColon) return null;
+    const userId = decoded.slice(0, firstColon);
+    const middle = decoded.slice(firstColon + 1, lastColon);
+    const sig = decoded.slice(lastColon + 1);
+    const secret = getHmacSecret();
+    const expected = crypto.createHmac('sha256', secret).update(`${userId}:${middle}`).digest('hex').slice(0, 16);
     if (sig !== expected) return null;
     // Token valid for 7 days
-    if (Date.now() - parseInt(ts) > 7 * 24 * 60 * 60 * 1000) return null;
+    if (Date.now() - parseInt(middle) > 7 * 24 * 60 * 60 * 1000) return null;
     return userId;
   } catch { return null; }
 }
@@ -127,7 +136,8 @@ const store = {
 
   // ══════ OTP & AUTH (Stateless HMAC - Works on Vercel Serverless) ══════
   _generateOtpHash(email, otp, expires) {
-    return crypto.createHmac('sha256', OTP_SECRET).update(`${email}:${otp}:${expires}`).digest('hex');
+    // ALWAYS compute secret lazily so env vars are guaranteed loaded
+    return crypto.createHmac('sha256', getHmacSecret()).update(`${email}:${otp}:${expires}`).digest('hex');
   },
 
   async sendAuthOtp(email, payload) {
@@ -157,9 +167,9 @@ const store = {
     } else {
       console.log(`[MOCK EMAIL] OTP for ${cleanEmail}: ${otp}`);
     }
-    // Return hash + expires + payload encoded so client can send it back for stateless verification
-    const payloadEncoded = Buffer.from(JSON.stringify(payload)).toString('base64');
-    return { success: true, otpToken: `${hash}:${expires}:${payloadEncoded}` };
+    // Return hash|expires|payload — use | as separator to avoid base64 colon issues
+    const payloadEncoded = Buffer.from(JSON.stringify(payload)).toString('base64url');
+    return { success: true, otpToken: `${hash}|${expires}|${payloadEncoded}` };
   },
 
   async verifyAuthOtp(email, otp, otpToken) {
@@ -176,17 +186,17 @@ const store = {
     
     // METHOD 2: Stateless HMAC verification (different serverless instance)
     if (otpToken) {
-      const parts = otpToken.split(':');
-      if (parts.length >= 3) {
-        const [hash, expiresStr, ...payloadParts] = parts;
+      // Use | as separator to avoid base64 colon ambiguity
+      const parts = otpToken.split('|');
+      if (parts.length === 3) {
+        const [hash, expiresStr, payloadEncoded] = parts;
         const expires = parseInt(expiresStr);
-        const payloadEncoded = payloadParts.join(':');
         
         if (Date.now() > expires) return { error: 'OTP has expired. Please request a new one.' };
         
         const expectedHash = this._generateOtpHash(cleanEmail, cleanOtp, expires);
         if (hash === expectedHash) {
-          const payload = JSON.parse(Buffer.from(payloadEncoded, 'base64').toString());
+          const payload = JSON.parse(Buffer.from(payloadEncoded, 'base64url').toString());
           return await this._executeOtpAction(cleanEmail, payload);
         }
       }
