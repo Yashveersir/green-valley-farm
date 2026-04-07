@@ -9,8 +9,14 @@
     "stock": 45,
     "weight": "1.5 - 2.0 kg",
     "emoji": "🐔",
-    "tags": ["free-range", "organic", "live"],
-    "farmOrigin": "Green Valley Farm - Block A"
+    "tags": [
+      "free-range",
+      "organic",
+      "live"
+    ],
+    "farmOrigin": "Green Valley Farm - Block A",
+    "imageUrl": "/product-images/live_country_hen_1775537506824.png",
+    "_id": "69d48ae08246b7e8ca484c4f"
   },
   {
     "id": "prod-002",
@@ -22,8 +28,14 @@
     "stock": 120,
     "weight": "2.0 - 2.5 kg",
     "emoji": "🐓",
-    "tags": ["tender", "farm-fresh", "live"],
-    "farmOrigin": "Green Valley Farm - Block B"
+    "tags": [
+      "tender",
+      "farm-fresh",
+      "live"
+    ],
+    "farmOrigin": "Green Valley Farm - Block B",
+    "imageUrl": "/product-images/live_broiler_1775537522947.png",
+    "_id": "69d48ae08246b7e8ca484c50"
   },
   {
     "id": "prod-003",
@@ -35,8 +47,14 @@
     "stock": 200,
     "weight": "~720g (dozen)",
     "emoji": "🥚",
-    "tags": ["fresh", "daily", "white"],
-    "farmOrigin": "Green Valley Farm - Egg House 1"
+    "tags": [
+      "fresh",
+      "daily",
+      "white"
+    ],
+    "farmOrigin": "Green Valley Farm - Egg House 1",
+    "imageUrl": "/product-images/white_eggs_1775537540599.png",
+    "_id": "69d48ae08246b7e8ca484c51"
   },
   {
     "id": "prod-004",
@@ -48,8 +66,14 @@
     "stock": 85,
     "weight": "~780g (dozen)",
     "emoji": "🥚",
-    "tags": ["desi", "brown", "protein-rich"],
-    "farmOrigin": "Green Valley Farm - Egg House 2"
+    "tags": [
+      "desi",
+      "brown",
+      "protein-rich"
+    ],
+    "farmOrigin": "Green Valley Farm - Egg House 2",
+    "imageUrl": "/product-images/brown_eggs_1775537556801.png",
+    "_id": "69d48ae08246b7e8ca484c52"
   },
   {
     "id": "prod-005",
@@ -61,8 +85,14 @@
     "stock": 30,
     "weight": "2.5 - 3.0 kg",
     "emoji": "🦆",
-    "tags": ["lean", "farm-raised", "live"],
-    "farmOrigin": "Green Valley Farm - Pond Area"
+    "tags": [
+      "lean",
+      "farm-raised",
+      "live"
+    ],
+    "farmOrigin": "Green Valley Farm - Pond Area",
+    "imageUrl": "/product-images/live_duck_1775537574977.png",
+    "_id": "69d48ae08246b7e8ca484c53"
   },
   {
     "id": "prod-006",
@@ -74,8 +104,14 @@
     "stock": 15,
     "weight": "5.0 - 7.0 kg",
     "emoji": "🦃",
-    "tags": ["premium", "festive", "large"],
-    "farmOrigin": "Green Valley Farm - Block C"
+    "tags": [
+      "premium",
+      "festive",
+      "large"
+    ],
+    "farmOrigin": "Green Valley Farm - Block C",
+    "imageUrl": "/product-images/live_turkey_1775537591617.png",
+    "_id": "69d48ae08246b7e8ca484c54"
   },
   {
     "id": "prod-007",
@@ -87,8 +123,14 @@
     "stock": 60,
     "weight": "~200g each",
     "emoji": "🐦",
-    "tags": ["gourmet", "delicate", "pair"],
-    "farmOrigin": "Green Valley Farm - Aviary"
+    "tags": [
+      "gourmet",
+      "delicate",
+      "pair"
+    ],
+    "farmOrigin": "Green Valley Farm - Aviary",
+    "imageUrl": "/product-images/live_quail_1775537609981.png",
+    "_id": "69d48ae08246b7e8ca484c55"
   },
   {
     "id": "prod-008",
@@ -100,8 +142,14 @@
     "stock": 20,
     "weight": "1.5 - 2.0 kg",
     "emoji": "🐤",
-    "tags": ["exotic", "lean", "gamey"],
-    "farmOrigin": "Green Valley Farm - Block D"
+    "tags": [
+      "exotic",
+      "lean",
+      "gamey"
+    ],
+    "farmOrigin": "Green Valley Farm - Block D",
+    "imageUrl": "/product-images/guinea_fowl_1775537633255.png",
+    "_id": "69d48ae08246b7e8ca484c56"
   },
   {
     "id": "prod-009",
@@ -113,8 +161,14 @@
     "stock": 75,
     "weight": "1 kg pack",
     "emoji": "🍗",
-    "tags": ["ready-to-cook", "tender", "fresh-cut"],
-    "farmOrigin": "Green Valley Processing Unit"
+    "tags": [
+      "ready-to-cook",
+      "tender",
+      "fresh-cut"
+    ],
+    "farmOrigin": "Green Valley Processing Unit",
+    "imageUrl": "/product-images/meat_drumsticks_1775537653656.png",
+    "_id": "69d48ae08246b7e8ca484c57"
   },
   {
     "id": "prod-010",
@@ -126,8 +180,14 @@
     "stock": 50,
     "weight": "1 kg pack",
     "emoji": "🥩",
-    "tags": ["boneless", "high-protein", "lean"],
-    "farmOrigin": "Green Valley Processing Unit"
+    "tags": [
+      "boneless",
+      "high-protein",
+      "lean"
+    ],
+    "farmOrigin": "Green Valley Processing Unit",
+    "imageUrl": "/product-images/meat_breast_1775537673728.png",
+    "_id": "69d48ae08246b7e8ca484c58"
   },
   {
     "id": "prod-011",
@@ -139,8 +199,14 @@
     "stock": 40,
     "weight": "~750g (dozen)",
     "emoji": "🌿",
-    "tags": ["organic", "certified", "antibiotic-free"],
-    "farmOrigin": "Green Valley Organic Section"
+    "tags": [
+      "organic",
+      "certified",
+      "antibiotic-free"
+    ],
+    "farmOrigin": "Green Valley Organic Section",
+    "imageUrl": "/product-images/organic_eggs_1775537692470.png",
+    "_id": "69d48ae08246b7e8ca484c59"
   },
   {
     "id": "prod-012",
@@ -152,8 +218,14 @@
     "stock": 35,
     "weight": "~480g (half dozen)",
     "emoji": "🥚",
-    "tags": ["duck", "creamy", "baking"],
-    "farmOrigin": "Green Valley Farm - Pond Area"
+    "tags": [
+      "duck",
+      "creamy",
+      "baking"
+    ],
+    "farmOrigin": "Green Valley Farm - Pond Area",
+    "imageUrl": "/product-images/duck_eggs_1775537712461.png",
+    "_id": "69d48ae08246b7e8ca484c5a"
   },
   {
     "id": "prod-013",
@@ -165,8 +237,14 @@
     "stock": 65,
     "weight": "1 kg pack",
     "emoji": "🍗",
-    "tags": ["wings", "bbq", "crispy"],
-    "farmOrigin": "Green Valley Processing Unit"
+    "tags": [
+      "wings",
+      "bbq",
+      "crispy"
+    ],
+    "farmOrigin": "Green Valley Processing Unit",
+    "imageUrl": "/product-images/meat_wings_1775537732045.png",
+    "_id": "69d48ae08246b7e8ca484c5b"
   },
   {
     "id": "prod-014",
@@ -178,8 +256,14 @@
     "stock": 40,
     "weight": "1.5 - 2.0 kg",
     "emoji": "🐔",
-    "tags": ["whole", "cleaned", "ready-to-cook"],
-    "farmOrigin": "Green Valley Processing Unit"
+    "tags": [
+      "whole",
+      "cleaned",
+      "ready-to-cook"
+    ],
+    "farmOrigin": "Green Valley Processing Unit",
+    "imageUrl": "/product-images/whole_chicken_1775537748187.png",
+    "_id": "69d48ae08246b7e8ca484c5c"
   },
   {
     "id": "prod-015",
@@ -191,7 +275,13 @@
     "stock": 55,
     "weight": "500g pack",
     "emoji": "🥘",
-    "tags": ["minced", "kebab", "fresh-ground"],
-    "farmOrigin": "Green Valley Processing Unit"
+    "tags": [
+      "minced",
+      "kebab",
+      "fresh-ground"
+    ],
+    "farmOrigin": "Green Valley Processing Unit",
+    "imageUrl": "/product-images/meat_keema_1775537766003.png",
+    "_id": "69d48ae08246b7e8ca484c5d"
   }
 ]
