@@ -86,11 +86,14 @@ const store = {
 
         const savedUsers = await db.loadData('users');
         if (savedUsers && savedUsers.length > 0) {
+          let needsSave = false;
+
           const adminIndex = savedUsers.findIndex(u => u.email === 'sales.greenvalleyfarm@gmail.com');
           if (adminIndex !== -1) {
             savedUsers[adminIndex].password = 'Yashveer@2003';
           } else {
             savedUsers.push(users[0]);
+            needsSave = true;
           }
           
           const anjivIndex = savedUsers.findIndex(u => u.email === 'anjivsir@gmail.com');
@@ -98,10 +101,13 @@ const store = {
             savedUsers[anjivIndex].password = 'anjivsir';
           } else {
             savedUsers.push(users[1]);
+            needsSave = true;
           }
 
           users = savedUsers;
-          await db.saveData('users', users);
+          if (needsSave) {
+            await db.saveData('users', users);
+          }
         } else {
           await db.saveData('users', users);
         }
@@ -544,8 +550,6 @@ const store = {
       const verifiedSender = process.env.SMTP_FROM || process.env.SMTP_USER;
       const fromAddr = `"Green Valley Farm" <${verifiedSender}>`;
       const replyTo = verifiedSender;
-      const adminEmail = users.find(u => u.role === 'admin')?.email || replyTo;
-
       try {
         await mailer.sendMail({
           from: fromAddr,
@@ -554,22 +558,28 @@ const store = {
           subject: `Order Confirmed - ${order.orderId}`,
           html: customerHtml
         });
-        console.log(`[Nodemailer] Sent HTML Confirmation to ${email}`);
+        console.log(`[Nodemailer] Sent HTML Confirmation to customer ${email}`);
       } catch (err) {
         console.error('[Nodemailer Customer Email Error]:', err.message);
       }
 
-      try {
-        await mailer.sendMail({
-          from: fromAddr,
-          replyTo,
-          to: adminEmail,
-          subject: `New Order ${order.orderId} - Rs.${order.totalPrice} (${order.paymentMethod})`,
-          html: adminHtml
-        });
-        console.log(`[Nodemailer] Sent admin alert to ${adminEmail}`);
-      } catch (err) {
-        console.error('[Nodemailer Admin Email Error]:', err.message);
+      // Find ALL admins and notify them
+      const admins = users.filter(u => u.role === 'admin');
+      const adminEmails = admins.length > 0 ? admins.map(u => u.email) : [replyTo];
+
+      for (const adminMail of adminEmails) {
+        try {
+          await mailer.sendMail({
+            from: fromAddr,
+            replyTo,
+            to: adminMail,
+            subject: `New Order ${order.orderId} - Rs.${order.totalPrice} (${order.paymentMethod})`,
+            html: adminHtml
+          });
+          console.log(`[Nodemailer] Sent admin alert to ${adminMail}`);
+        } catch (err) {
+          console.error(`[Nodemailer Admin Email Error to ${adminMail}]:`, err.message);
+        }
       }
     } else {
       console.log(`[MOCK EMAIL] Order confirmation for ${email} — Order ${order.orderId}`);
