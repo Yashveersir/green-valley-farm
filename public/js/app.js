@@ -183,9 +183,7 @@ const App = {
     btn.disabled = true; btn.textContent = 'Sending...';
     try {
       const email = document.getElementById('forgot-email').value;
-      await API.request('/auth/send-otp', {
-        method: 'POST', body: JSON.stringify({ email, action: 'reset-password' })
-      });
+      const data = await API.sendOtp(email, 'reset-password', {});
       document.getElementById('forgot-step-1').style.display = 'none';
       document.getElementById('forgot-step-2').style.display = 'block';
       this.toast('Reset OTP sent to email!', 'success');
@@ -204,8 +202,9 @@ const App = {
       const otp = document.getElementById('forgot-otp').value;
       const newPassword = document.getElementById('forgot-password').value;
       
+      const otpToken = sessionStorage.getItem('gvf_otpToken') || '';
       const data = await API.request('/auth/reset-password', {
-        method: 'POST', body: JSON.stringify({ email, otp, newPassword })
+        method: 'POST', body: JSON.stringify({ email, otp, newPassword, otpToken })
       });
       
       this.closeModals();
