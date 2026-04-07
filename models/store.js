@@ -523,8 +523,9 @@ const store = {
 
     if (process.env.SMTP_USER && process.env.SMTP_PASS) {
       // Use the verified Brevo sender as FROM, and set Reply-To to the farm email
-      const fromAddr = `"Green Valley Farm" <${process.env.SMTP_USER}>`;
-      const replyTo = process.env.SMTP_FROM || process.env.SMTP_USER;
+      const verifiedSender = process.env.SMTP_FROM || process.env.SMTP_USER;
+      const fromAddr = `"Green Valley Farm" <${verifiedSender}>`;
+      const replyTo = verifiedSender;
       const adminEmail = users.find(u => u.role === 'admin')?.email || replyTo;
 
       try {
