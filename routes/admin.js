@@ -30,10 +30,10 @@ router.get('/orders', (req, res) => {
 });
 
 // PUT /api/admin/orders/:orderId/status
-router.put('/orders/:orderId/status', (req, res) => {
+router.put('/orders/:orderId/status', async (req, res) => {
   const { status } = req.body;
   if (!status) return res.status(400).json({ success: false, error: 'Status required' });
-  const result = store.updateOrderStatus(req.params.orderId, status);
+  const result = await store.updateOrderStatus(req.params.orderId, status);
   if (result.error) return res.status(404).json({ success: false, error: result.error });
   res.json({ success: true, order: result });
 });

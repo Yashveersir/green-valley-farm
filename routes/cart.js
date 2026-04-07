@@ -9,37 +9,37 @@ router.get('/', (req, res) => {
 });
 
 // POST /api/cart
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   const userId = req.userId || 'guest';
   const { productId, quantity } = req.body;
   if (!productId) return res.status(400).json({ success: false, error: 'productId is required' });
-  const result = store.addToCart(userId, productId, quantity || 1);
+  const result = await store.addToCart(userId, productId, quantity || 1);
   if (result.error) return res.status(400).json({ success: false, error: result.error });
   res.json({ success: true, cart: result });
 });
 
 // PUT /api/cart/:cartItemId
-router.put('/:cartItemId', (req, res) => {
+router.put('/:cartItemId', async (req, res) => {
   const userId = req.userId || 'guest';
   const { quantity } = req.body;
   if (typeof quantity !== 'number') return res.status(400).json({ success: false, error: 'quantity required' });
-  const result = store.updateCartItem(userId, req.params.cartItemId, quantity);
+  const result = await store.updateCartItem(userId, req.params.cartItemId, quantity);
   if (result.error) return res.status(400).json({ success: false, error: result.error });
   res.json({ success: true, cart: result });
 });
 
 // DELETE /api/cart/:cartItemId
-router.delete('/:cartItemId', (req, res) => {
+router.delete('/:cartItemId', async (req, res) => {
   const userId = req.userId || 'guest';
-  const result = store.removeCartItem(userId, req.params.cartItemId);
+  const result = await store.removeCartItem(userId, req.params.cartItemId);
   if (result.error) return res.status(404).json({ success: false, error: result.error });
   res.json({ success: true, cart: result });
 });
 
 // DELETE /api/cart
-router.delete('/', (req, res) => {
+router.delete('/', async (req, res) => {
   const userId = req.userId || 'guest';
-  res.json({ success: true, cart: store.clearCart(userId) });
+  res.json({ success: true, cart: await store.clearCart(userId) });
 });
 
 module.exports = router;

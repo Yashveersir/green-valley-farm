@@ -21,21 +21,21 @@ router.get('/:id', (req, res) => {
 });
 
 // POST /api/products (admin only — auth checked in server.js middleware)
-router.post('/', (req, res) => {
-  const product = store.addProduct(req.body);
+router.post('/', async (req, res) => {
+  const product = await store.addProduct(req.body);
   res.status(201).json({ success: true, product });
 });
 
 // PUT /api/products/:id (admin only)
-router.put('/:id', (req, res) => {
-  const result = store.updateProduct(req.params.id, req.body);
+router.put('/:id', async (req, res) => {
+  const result = await store.updateProduct(req.params.id, req.body);
   if (result.error) return res.status(404).json({ success: false, error: result.error });
   res.json({ success: true, product: result });
 });
 
 // DELETE /api/products/:id (admin only)
-router.delete('/:id', (req, res) => {
-  const result = store.deleteProduct(req.params.id);
+router.delete('/:id', async (req, res) => {
+  const result = await store.deleteProduct(req.params.id);
   if (result.error) return res.status(404).json({ success: false, error: result.error });
   res.json({ success: true });
 });

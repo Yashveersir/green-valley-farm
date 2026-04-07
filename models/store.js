@@ -92,9 +92,9 @@ const store = {
           }
 
           users = savedUsers;
-          db.saveData('users', users);
+          await db.saveData('users', users);
         } else {
-          db.saveData('users', users);
+          await db.saveData('users', users);
         }
         
         const savedOrders = await db.loadData('orders');
@@ -110,7 +110,7 @@ const store = {
         if (savedProducts && savedProducts.length > 0) {
           products = savedProducts;
         } else {
-          db.saveData('products', products);
+          await db.saveData('products', products);
         }
         console.log('[Store] All data loaded from MongoDB ✅');
         this.dbConnected = true;
@@ -162,7 +162,7 @@ const store = {
     return { success: true, otpToken: `${hash}:${expires}:${payloadEncoded}` };
   },
 
-  verifyAuthOtp(email, otp, otpToken) {
+  async verifyAuthOtp(email, otp, otpToken) {
     const cleanEmail = (email || '').trim().toLowerCase();
     const cleanOtp = (otp || '').trim();
     
@@ -171,7 +171,7 @@ const store = {
     if (record && record.otp === cleanOtp && record.expires > Date.now()) {
       const payload = record.payload;
       delete pendingOtps[cleanEmail];
-      return this._executeOtpAction(cleanEmail, payload);
+      return await this._executeOtpAction(cleanEmail, payload);
     }
     
     // METHOD 2: Stateless HMAC verification (different serverless instance)
@@ -187,7 +187,7 @@ const store = {
         const expectedHash = this._generateOtpHash(cleanEmail, cleanOtp, expires);
         if (hash === expectedHash) {
           const payload = JSON.parse(Buffer.from(payloadEncoded, 'base64').toString());
-          return this._executeOtpAction(cleanEmail, payload);
+          return await this._executeOtpAction(cleanEmail, payload);
         }
       }
     }
@@ -195,9 +195,9 @@ const store = {
     return { error: 'Invalid or expired OTP' };
   },
 
-  _executeOtpAction(cleanEmail, payload) {
+  async _executeOtpAction(cleanEmail, payload) {
     if (payload.action === 'register') {
-      return this.registerUser(payload.userData);
+      return await this.registerUser(payload.userData);
     } else if (payload.action === 'login') {
       const user = users.find(u => u.email.toLowerCase() === cleanEmail);
       if (!user) return { error: 'No account found with this email' };
@@ -212,15 +212,15 @@ const store = {
     return { error: 'Invalid OTP action' };
   },
 
-  resetUserPassword(email, newPassword) {
+  async resetUserPassword(email, newPassword) {
     const user = users.find(u => u.email.toLowerCase() === (email || '').trim().toLowerCase());
     if (!user) return { error: 'User not found' };
     user.password = newPassword;
-    db.saveData('users', users);
+    await db.saveData('users', users);
     return { success: true };
   },
 
-  registerUser({ name, email, password, phone }) {
+  async registerUser({ name, email, password, phone }) {
     if (!name || !email || !password) return { error: 'Name, email, and password are required' };
     if (users.find(u => u.email === email)) return { error: 'Email already registered' };
     const user = {
@@ -230,20 +230,20 @@ const store = {
       createdAt: new Date().toISOString()
     };
     users.push(user);
-    db.saveData('users', users);
+    await db.saveData('users', users);
     const token = createStatelessToken(user.id);
     const { password: _, ...safe } = user;
     return { user: safe, token };
   },
 
-  updateUserProfile(userId, data) {
+  async updateUserProfile(userId, data) {
     const user = users.find(u => u.id === userId);
     if (!user) return { error: 'User not found' };
     if (data.name) user.name = data.name;
     if (data.phone) user.phone = data.phone;
     if (data.newPassword) user.password = data.newPassword;
-    db.saveData('users', users);
-    const { password, ...safe } = user;
+    await db.saveData('users', users);
+    const { password: _, ...safe } = user;
     return { user: safe };
   },
 
@@ -300,7 +300,7 @@ const store = {
     );
   },
 
-  addProduct(data) {
+  async addProduct(data) {
     const product = {
       id: `prod-${uuidv4().slice(0, 6)}`,
       name: data.name,
@@ -315,29 +315,30 @@ const store = {
       farmOrigin: data.farmOrigin || 'Green Valley Farm'
     };
     products.push(product);
-    db.saveData('products', products);
+    await db.saveData('products', products);
     return product;
   },
 
-  updateProduct(id, data) {
-    const idx = products.findIndex(p => p.id === id);
-    if (idx === -1) return { error: 'Product not found' };
-    const allowed = ['name','category','description','price','unit','stock','weight','emoji','tags','farmOrigin'];
-    for (const key of allowed) {
-      if (data[key] !== undefined) {
-        if (key === 'price' || key === 'stock') products[idx][key] = Number(data[key]);
-        else products[idx][key] = data[key];
-      }
-    }
-    db.saveData('products', products);
-    return products[idx];
+  async updateProduct(id, data) {
+    const p = products.find(p => p.id === id);
+    if (!p) return { error: 'Product not found' };
+    const originalName = p.name;
+    Object.assign(p, data);
+    await db.saveData('products', products);
+
+    this.addNotification({ 
+      title: 'Product Updated', 
+      message: `Admin updated product details for ${originalName}`,
+      type: 'system' 
+    });
+    return p;
   },
 
-  deleteProduct(id) {
+  async deleteProduct(id) {
     const idx = products.findIndex(p => p.id === id);
     if (idx === -1) return { error: 'Product not found' };
     products.splice(idx, 1);
-    db.saveData('products', products);
+    await db.saveData('products', products);
     return { success: true };
   },
 
@@ -351,7 +352,7 @@ const store = {
     };
   },
 
-  addToCart(userId, productId, quantity = 1) {
+  async addToCart(userId, productId, quantity = 1) {
     const product = this.getProductById(productId);
     if (!product) return { error: 'Product not found' };
     if (product.stock < quantity) return { error: 'Insufficient stock' };
@@ -368,32 +369,32 @@ const store = {
         quantity, subtotal: product.price * quantity
       });
     }
-    db.saveData('carts', carts);
+    await db.saveData('carts', carts);
     return this.getCart(userId);
   },
 
-  updateCartItem(userId, cartItemId, quantity) {
-    if (!carts[userId]) return { error: 'Cart not found' };
+  async updateCartItem(userId, cartItemId, quantity) {
+    if (!carts[userId]) return this.getCart(userId);
     const item = carts[userId].find(i => i.cartItemId === cartItemId);
     if (!item) return { error: 'Cart item not found' };
-    if (quantity <= 0) return this.removeCartItem(userId, cartItemId);
+    if (quantity <= 0) return await this.removeCartItem(userId, cartItemId);
     const product = this.getProductById(item.productId);
     if (product && product.stock < quantity) return { error: 'Insufficient stock' };
     item.quantity = quantity;
     item.subtotal = item.price * quantity;
-    db.saveData('carts', carts);
+    await db.saveData('carts', carts);
     return this.getCart(userId);
   },
 
-  removeCartItem(userId, cartItemId) {
+  async removeCartItem(userId, cartItemId) {
     if (carts[userId]) carts[userId] = carts[userId].filter(i => i.cartItemId !== cartItemId);
-    db.saveData('carts', carts);
+    await db.saveData('carts', carts);
     return this.getCart(userId);
   },
 
-  clearCart(userId) {
+  async clearCart(userId) {
     carts[userId] = [];
-    db.saveData('carts', carts);
+    await db.saveData('carts', carts);
     return this.getCart(userId);
   },
 
@@ -425,9 +426,9 @@ const store = {
     };
     orders.push(order);
     carts[userId] = [];
-    db.saveData('orders', orders);
-    db.saveData('carts', carts);
-    db.saveData('products', products);
+    await db.saveData('orders', orders);
+    await db.saveData('carts', carts);
+    await db.saveData('products', products);
 
     // Notify admin
     this.addNotification({
@@ -557,11 +558,11 @@ const store = {
     return orders.find(o => o.orderId === orderId) || null;
   },
 
-  updateOrderStatus(orderId, status) {
+  async updateOrderStatus(orderId, status) {
     const order = orders.find(o => o.orderId === orderId);
     if (!order) return { error: 'Order not found' };
     order.status = status;
-    db.saveData('orders', orders); // Explicitly lock update into MongoDB!
+    await db.saveData('orders', orders); // Explicitly lock update into MongoDB!
     return order;
   },
 

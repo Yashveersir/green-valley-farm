@@ -12,27 +12,27 @@ router.post('/send-otp', async (req, res) => {
 });
 
 // POST /api/auth/verify-otp
-router.post('/verify-otp', (req, res) => {
+router.post('/verify-otp', async (req, res) => {
   const { email, otp, otpToken } = req.body;
   if (!email || !otp) return res.status(400).json({ success: false, error: 'Email and OTP required' });
-  const result = store.verifyAuthOtp(email, otp, otpToken);
+  const result = await store.verifyAuthOtp(email, otp, otpToken);
   if (result.error) return res.status(400).json({ success: false, error: result.error });
   res.json({ success: true, ...result });
 });
 
 // POST /api/auth/reset-password
-router.post('/reset-password', (req, res) => {
+router.post('/reset-password', async (req, res) => {
   const { email, otp, newPassword } = req.body;
   if (!email || !otp || !newPassword) return res.status(400).json({ success: false, error: 'Email, OTP, and new Password required' });
   
   if (newPassword.length < 6) return res.status(400).json({ success: false, error: 'Password must be at least 6 characters' });
 
   // Leverage the existing logic; we verify the OTP the exact same way
-  const result = store.verifyAuthOtp(email, otp, req.body.otpToken);
+  const result = await store.verifyAuthOtp(email, otp, req.body.otpToken);
   if (result.error) return res.status(400).json({ success: false, error: result.error });
   
   // Actually execute the password mutation on the validated user entity
-  const updateResult = store.resetUserPassword(email, newPassword);
+  const updateResult = await store.resetUserPassword(email, newPassword);
   if (updateResult.error) return res.status(400).json({ success: false, error: updateResult.error });
   
   res.json({ success: true });
@@ -40,9 +40,9 @@ router.post('/reset-password', (req, res) => {
 
 
 // POST /api/auth/register
-router.post('/register', (req, res) => {
+router.post('/register', async (req, res) => {
   const { name, email, password, phone } = req.body;
-  const result = store.registerUser({ name, email, password, phone });
+  const result = await store.registerUser({ name, email, password, phone });
   if (result.error) return res.status(400).json({ success: false, error: result.error });
   res.status(201).json({ success: true, ...result });
 });
@@ -73,7 +73,7 @@ router.post('/logout', (req, res) => {
 });
 
 // PUT /api/auth/profile
-router.put('/profile', (req, res) => {
+router.put('/profile', async (req, res) => {
   const token = req.headers.authorization?.replace('Bearer ', '');
   if (!token) return res.status(401).json({ success: false, error: 'Not authenticated' });
   const user = store.verifyToken(token);
@@ -83,7 +83,7 @@ router.put('/profile', (req, res) => {
   if (!name || !phone) return res.status(400).json({ success: false, error: 'Name and phone required' });
   if (newPassword && newPassword.length < 6) return res.status(400).json({ success: false, error: 'Password must be at least 6 characters' });
   
-  const result = store.updateUserProfile(user.id, { name, phone, newPassword });
+  const result = await store.updateUserProfile(user.id, { name, phone, newPassword });
   if (result.error) return res.status(400).json({ success: false, error: result.error });
   res.json({ success: true, user: result.user });
 });
