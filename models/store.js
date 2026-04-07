@@ -5,8 +5,27 @@ const { v4: uuidv4 } = require('uuid');
 const nodemailer = require('nodemailer');
 const db = require('./db');
 
-// Secret key for HMAC OTP verification (works without server-side state)
-const OTP_SECRET = process.env.MONGODB_URI ? process.env.MONGODB_URI.slice(-20) : 'greenvalley-otp-secret-2024';
+// Secret key for HMAC verification (works without server-side state on Vercel)
+const HMAC_SECRET = process.env.MONGODB_URI ? process.env.MONGODB_URI.slice(-20) : 'greenvalley-secret-2024';
+const OTP_SECRET = HMAC_SECRET;
+
+// Stateless token helpers
+function createStatelessToken(userId) {
+  const ts = Date.now();
+  const sig = crypto.createHmac('sha256', HMAC_SECRET).update(`${userId}:${ts}`).digest('hex').slice(0, 16);
+  return Buffer.from(`${userId}:${ts}:${sig}`).toString('base64');
+}
+function verifyStatelessToken(token) {
+  try {
+    const decoded = Buffer.from(token, 'base64').toString();
+    const [userId, ts, sig] = decoded.split(':');
+    const expected = crypto.createHmac('sha256', HMAC_SECRET).update(`${userId}:${ts}`).digest('hex').slice(0, 16);
+    if (sig !== expected) return null;
+    // Token valid for 7 days
+    if (Date.now() - parseInt(ts) > 7 * 24 * 60 * 60 * 1000) return null;
+    return userId;
+  } catch { return null; }
+}
 
 const mailer = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
@@ -49,7 +68,7 @@ const store = {
   isInitialized: false,
   // ══════ DATABASE INIT ══════
   async init() {
-    if (this.isInitialized) return true;
+    if (this.isInitialized && this.dbConnected) return true;
     try {
       const connected = await db.connectDB();
       if (connected) {
@@ -94,13 +113,14 @@ const store = {
           db.saveData('products', products);
         }
         console.log('[Store] All data loaded from MongoDB ✅');
+        this.dbConnected = true;
       } else {
         console.log('[Store] MongoDB not available, using in-memory defaults (admins + products.json)');
       }
     } catch (err) {
       console.error('[Store] Init error (non-fatal):', err.message);
     }
-    // ALWAYS mark as initialized so we don't retry and so login works immediately
+    // ALWAYS mark as initialized so we don't block requests
     this.isInitialized = true;
     return true;
   },
@@ -181,8 +201,7 @@ const store = {
     } else if (payload.action === 'login') {
       const user = users.find(u => u.email.toLowerCase() === cleanEmail);
       if (!user) return { error: 'No account found with this email' };
-      const token = uuidv4();
-      tokens[token] = user.id;
+      const token = createStatelessToken(user.id);
       const { password: _, ...safe } = user;
       return { user: safe, token };
     } else if (payload.action === 'reset-password') {
@@ -211,9 +230,8 @@ const store = {
       createdAt: new Date().toISOString()
     };
     users.push(user);
-    db.saveData('users', users); // Persist
-    const token = uuidv4();
-    tokens[token] = user.id;
+    db.saveData('users', users);
+    const token = createStatelessToken(user.id);
     const { password: _, ...safe } = user;
     return { user: safe, token };
   },
@@ -232,19 +250,31 @@ const store = {
   loginUser(email, password) {
     const user = users.find(u => u.email === email && u.password === password);
     if (!user) return { error: 'Invalid email or password' };
-    const token = uuidv4();
-    tokens[token] = user.id;
+    const token = createStatelessToken(user.id);
     const { password: _, ...safe } = user;
     return { user: safe, token };
   },
 
   verifyToken(token) {
-    const userId = tokens[token];
-    if (!userId) return null;
-    const user = users.find(u => u.id === userId);
-    if (!user) return null;
-    const { password: _, ...safe } = user;
-    return safe;
+    // Try stateless HMAC token first
+    const userId = verifyStatelessToken(token);
+    if (userId) {
+      const user = users.find(u => u.id === userId);
+      if (user) {
+        const { password: _, ...safe } = user;
+        return safe;
+      }
+    }
+    // Fallback: old in-memory tokens (for same-instance requests)
+    const oldUserId = tokens[token];
+    if (oldUserId) {
+      const user = users.find(u => u.id === oldUserId);
+      if (user) {
+        const { password: _, ...safe } = user;
+        return safe;
+      }
+    }
+    return null;
   },
 
   logoutUser(token) {
