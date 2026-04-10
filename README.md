@@ -1,5 +1,7 @@
 # Green Valley Poultry Farm 🐔
 
+**Live Demo:** [https://www.green-valley-farm.online/#](https://www.green-valley-farm.online/#)
+
 A full-stack web application for browsing and ordering fresh poultry products directly from a premium poultry farm. This application provides a modern e-commerce experience with user authentication, shopping cart functionality, order management, and an admin dashboard.
 
 ![Green Valley Poultry Farm](public/images/hero-banner.png)
@@ -167,6 +169,17 @@ For SMS OTP verification:
 - **Google Fonts**: Typography (Outfit, Playfair Display)
 
 ## 🚢 Deployment
+
+### Live Demo
+The application is deployed and accessible at:
+**🌐 [https://www.green-valley-farm.online/#](https://www.green-valley-farm.online/#)**
+
+**Features available in the live demo:**
+- Browse product catalog with images and descriptions
+- Add items to shopping cart
+- User registration and login (OTP verification simulated)
+- Admin dashboard (login with admin credentials)
+- Responsive design across all devices
 
 ### Vercel Deployment
 This project is configured for easy deployment on Vercel:
