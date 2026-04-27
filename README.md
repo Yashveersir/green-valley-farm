@@ -24,6 +24,7 @@ A full-stack web application for browsing and ordering fresh poultry products di
 - **File Upload**: Product image upload and management
 - **Email/SMS Integration**: Nodemailer for emails and Twilio for SMS notifications
 - **Memory Fallback**: In-memory storage when MongoDB is unavailable
+- **Payment Gateway**: Razorpay integration for processing online payments and verifying transactions
 
 ## 🏗️ Project Structure
 
@@ -83,6 +84,8 @@ green-valley-poultry-farm/
    TWILIO_ACCOUNT_SID=your_twilio_account_sid
    TWILIO_AUTH_TOKEN=your_twilio_auth_token
    TWILIO_PHONE_NUMBER=+1234567890
+   RAZORPAY_KEY_ID=your_razorpay_key_id
+   RAZORPAY_KEY_SECRET=your_razorpay_key_secret
    ```
 
 4. **Start the development server**
@@ -132,6 +135,10 @@ green-valley-poultry-farm/
 - `GET /api/admin/orders` - Get all orders (admin only)
 - `GET /api/admin/users` - Get all users (admin only)
 
+### Payments
+- `POST /api/payments/create-order` - Create a Razorpay order (requires auth)
+- `POST /api/payments/verify-payment` - Verify payment signature and place the order (requires auth)
+
 ## 🔧 Configuration
 
 ### Database Options
@@ -150,6 +157,12 @@ For SMS OTP verification:
 1. Sign up for Twilio and get Account SID, Auth Token, and Phone Number
 2. Add these to your `.env` file
 3. The app will send SMS OTPs for phone-based login
+
+### Payment Configuration (Razorpay)
+For processing online payments:
+1. Create a Razorpay account and generate API keys from the dashboard
+2. Add `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` to your `.env` file
+3. Ensure the frontend has access to the standard Razorpay checkout script
 
 ## 🎨 Frontend Features
 
@@ -216,6 +229,8 @@ NODE_ENV=production npm start
 | `TWILIO_ACCOUNT_SID` | Twilio Account SID | (optional) |
 | `TWILIO_AUTH_TOKEN` | Twilio Auth Token | (optional) |
 | `TWILIO_PHONE_NUMBER` | Twilio phone number | (optional) |
+| `RAZORPAY_KEY_ID` | Razorpay API Key ID | (required for online payments) |
+| `RAZORPAY_KEY_SECRET` | Razorpay API Key Secret | (required for online payments) |
 
 ## 🔒 Security Features
 
