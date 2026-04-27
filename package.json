@@ -13,6 +13,7 @@
     "express": "^4.21.0",
     "mongoose": "^9.4.1",
     "nodemailer": "^8.0.4",
+    "razorpay": "^2.9.6",
     "twilio": "^5.13.1",
     "uuid": "^9.0.1"
   }

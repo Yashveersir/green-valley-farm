@@ -10,6 +10,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="icon" type="image/png" href="/images/logo.png">
   <link rel="stylesheet" href="/css/styles.css">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 </head>
 <body>
   <header class="header" id="main-header">
@@ -112,32 +114,13 @@
             <h3 class="form-section-title">💵 Payment Method</h3>
             <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:16px;">
               <label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
-                <input type="radio" name="payment-method" value="COD" checked onclick="document.getElementById('upi-panel').style.display='none'">
+                <input type="radio" name="payment-method" value="COD" checked>
                 <strong>Cash on Delivery (COD)</strong>
               </label>
               <label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
-                <input type="radio" name="payment-method" value="UPI" onclick="document.getElementById('upi-panel').style.display='block'">
-                <strong>UPI Payment (Free)</strong>
+                <input type="radio" name="payment-method" value="ONLINE">
+                <strong>Pay Online (UPI, Cards, Wallets)</strong>
               </label>
-            </div>
-            
-            <div id="upi-panel" style="display:none; background:var(--bg-surface); padding:16px; border-radius:var(--radius); border:1px solid var(--border-subtle); margin-bottom:16px;">
-              <p style="font-size:14px; margin-bottom:12px;">Send payment securely using any UPI app (GPay, PhonePe, Paytm):</p>
-              <div style="text-align:center; margin-bottom:16px;">
-                <img src="/images/qr.jpg" alt="UPI QR Code" style="width:200px; height:auto; border-radius:12px; box-shadow:0 6px 16px rgba(0,0,0,0.15); border:4px solid white;">
-              </div>
-              <div style="background:var(--bg-card); padding:12px; border:1px dashed var(--border); border-radius:var(--radius); text-align:center; font-family:monospace; margin-bottom:12px; font-size:16px; letter-spacing:0.5px;">
-                <strong>greenvalleyfarm@axl</strong>
-              </div>
-              <div class="form-group">
-                <label for="upi-utr">Enter 12-Digit UTR/Reference No. <span style="color:var(--danger)">*</span></label>
-                <input type="text" id="upi-utr" placeholder="e.g. 312345678901" maxlength="12" minlength="12">
-              </div>
-              <div class="form-group" style="margin-top:12px;">
-                <label for="upi-screenshot">Upload Payment Screenshot <span style="color:var(--danger)">*</span></label>
-                <input type="file" id="upi-screenshot" accept="image/*" style="padding:10px; background:var(--bg-card); border:1px solid var(--border-subtle); border-radius:var(--radius); width:100%;">
-              </div>
-              <p style="font-size:12px; color:var(--text-muted); margin-top:10px;">Please hit 'Place Order' strictly after payment is successful. The order will be manually verified by Admin.</p>
             </div>
           </div>
           <button type="submit" class="btn btn-primary btn-lg btn-block" id="place-order-btn">✓ Place Order</button>
@@ -221,6 +204,12 @@
         <button type="submit" class="btn btn-primary btn-block btn-lg" id="login-otp-submit">Send Auth Code</button>
       </form>
 
+      <div class="auth-divider"><span>or</span></div>
+      <div class="google-auth-wrap">
+        <div class="google-auth-btn" id="google-login-btn"></div>
+        <p class="google-auth-note" id="google-login-note">Google sign-in is loading...</p>
+      </div>
+
       <p class="modal-switch">Don't have an account? <a href="#" onclick="App.showModal('register')">Register</a></p>
     </div>
   </div>
@@ -262,6 +251,11 @@
         <div class="form-group"><label>Password</label><input type="password" id="reg-password" placeholder="Create password" required minlength="4"></div>
         <button type="submit" class="btn btn-primary btn-block btn-lg" id="reg-submit">Verify Email</button>
       </form>
+      <div class="auth-divider"><span>or</span></div>
+      <div class="google-auth-wrap">
+        <div class="google-auth-btn" id="google-register-btn"></div>
+        <p class="google-auth-note" id="google-register-note">Google sign-in is loading...</p>
+      </div>
       <p class="modal-switch">Already have an account? <a href="#" onclick="App.showModal('login')">Login</a></p>
     </div>
   </div>
@@ -312,12 +306,20 @@
           <div id="pd-price" style="font-size:22px;font-weight:800;color:var(--accent);"></div>
           <span id="pd-stock" class="stock-badge in-stock" style="padding:4px 12px;border-radius:var(--radius-full);font-size:11px;font-weight:600;text-transform:uppercase;"></span>
         </div>
+        <div id="price-hint-pd" style="font-size:14px; color:var(--primary); margin-top:-8px; margin-bottom:14px; font-weight:600; display:none;"></div>
         <p id="pd-desc" style="color:var(--text-secondary);font-size:14px;line-height:1.5;margin-bottom:16px;"></p>
         <div style="display:flex;justify-content:space-between;color:var(--text-muted);font-size:13px;background:var(--bg-document);padding:12px;border-radius:var(--radius);margin-bottom:20px;flex-wrap:wrap;gap:8px;">
           <span>⚖️ <strong style="color:var(--text);" id="pd-weight"></strong></span>
           <span>📍 <strong style="color:var(--text);" id="pd-farm"></strong></span>
         </div>
-        <button class="btn btn-primary btn-block" id="pd-add-btn" style="padding:12px;font-size:15px;" onclick="">🛒 Add to Cart</button>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <div class="qty-picker" style="display:flex;align-items:center;border:1px solid var(--border-subtle);border-radius:8px;overflow:hidden;background:var(--bg-surface);height:42px;">
+            <button type="button" onclick="App.changeQty('pd',-1)" style="width:40px;height:100%;border:none;background:transparent;color:var(--text);font-size:18px;cursor:pointer;font-weight:700;">−</button>
+            <input type="number" id="qty-pd" value="1" min="1" max="999" style="width:40px;text-align:center;border:none;background:transparent;color:var(--text);font-size:16px;font-weight:600;-moz-appearance:textfield;outline:none;">
+            <button type="button" onclick="App.changeQty('pd',1)" style="width:40px;height:100%;border:none;background:transparent;color:var(--text);font-size:18px;cursor:pointer;font-weight:700;">+</button>
+          </div>
+          <button class="btn btn-primary btn-block" id="pd-add-btn" style="flex:1;padding:12px;font-size:15px;margin:0;" onclick="">🛒 Add to Cart</button>
+        </div>
       </div>
     </div>
   </div>

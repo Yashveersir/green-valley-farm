@@ -2,6 +2,35 @@ const express = require('express');
 const router = express.Router();
 const store = require('../models/store');
 
+async function verifyGoogleCredential(credential) {
+  if (!process.env.GOOGLE_CLIENT_ID) {
+    return { error: 'Google sign-in is not configured' };
+  }
+  if (!credential) {
+    return { error: 'Google credential is required' };
+  }
+
+  const url = `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`;
+  const response = await fetch(url);
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok) return { error: payload.error_description || 'Invalid Google credential' };
+  if (payload.aud !== process.env.GOOGLE_CLIENT_ID) return { error: 'Google credential was issued for another app' };
+  if (!['accounts.google.com', 'https://accounts.google.com'].includes(payload.iss)) return { error: 'Invalid Google issuer' };
+  if (Number(payload.exp) * 1000 <= Date.now()) return { error: 'Google credential has expired' };
+
+  return { payload };
+}
+
+// GET /api/auth/config
+router.get('/config', (req, res) => {
+  res.json({
+    success: true,
+    googleClientId: process.env.GOOGLE_CLIENT_ID || '',
+    razorpayKeyId: process.env.RAZORPAY_KEY_ID || ''
+  });
+});
+
 // POST /api/auth/send-otp
 router.post('/send-otp', async (req, res) => {
   const { email, action, userData } = req.body;
@@ -54,6 +83,20 @@ router.post('/login', (req, res) => {
   const result = store.loginUser(email, password);
   if (result.error) return res.status(401).json({ success: false, error: result.error });
   res.json({ success: true, ...result });
+});
+
+// POST /api/auth/google
+router.post('/google', async (req, res) => {
+  try {
+    const verified = await verifyGoogleCredential(req.body.credential);
+    if (verified.error) return res.status(401).json({ success: false, error: verified.error });
+
+    const result = await store.loginWithGoogle(verified.payload);
+    if (result.error) return res.status(400).json({ success: false, error: result.error });
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'Unable to verify Google sign-in' });
+  }
 });
 
 // GET /api/auth/me

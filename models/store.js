@@ -72,6 +72,31 @@ let users = [
 ];
 let pendingOtps = {}; // email -> { otp, payload, expires }
 let tokens = {}; // token -> userId
+const ORDER_STATUSES = ['confirmed', 'processing', 'dispatched', 'delivered', 'cancelled'];
+const CUSTOMER_CANCELLABLE_STATUSES = ['confirmed', 'processing'];
+const ORDER_CANCEL_WINDOW_MS = 2 * 60 * 60 * 1000;
+
+function restoreOrderStock(order) {
+  if (!order || order.stockRestored) return;
+  for (const item of order.items || []) {
+    const product = products.find(p => p.id === item.productId);
+    if (product) product.stock += item.quantity;
+  }
+  order.stockRestored = true;
+}
+
+function reserveOrderStock(order) {
+  if (!order || !order.stockRestored) return;
+  for (const item of order.items || []) {
+    const product = products.find(p => p.id === item.productId);
+    if (product) product.stock = Math.max(0, product.stock - item.quantity);
+  }
+  order.stockRestored = false;
+}
+
+function getCancelDeadline(order) {
+  return new Date(new Date(order.placedAt).getTime() + ORDER_CANCEL_WINDOW_MS);
+}
 
 const store = {
   isInitialized: false,
@@ -288,6 +313,51 @@ const store = {
     return { user: safe };
   },
 
+  async loginWithGoogle(profile) {
+    const cleanEmail = (profile.email || '').trim().toLowerCase();
+    if (!profile.sub || !cleanEmail) return { error: 'Invalid Google profile' };
+    if (profile.email_verified === false) return { error: 'Google email is not verified' };
+
+    if (this.dbConnected) {
+      const freshUsers = await db.loadData('users');
+      if (freshUsers) users = freshUsers;
+    }
+
+    let user = users.find(u => u.googleId === profile.sub);
+
+    if (!user) {
+      user = users.find(u => (u.email || '').toLowerCase().trim() === cleanEmail);
+      if (user) {
+        user.googleId = profile.sub;
+        user.authProvider = user.authProvider || 'google';
+        user.avatar = profile.picture || user.avatar || '';
+        user.emailVerified = true;
+      }
+    }
+
+    if (!user) {
+      user = {
+        id: `user-${uuidv4().slice(0, 8)}`,
+        name: profile.name || cleanEmail.split('@')[0],
+        email: cleanEmail,
+        password: `google:${uuidv4()}`,
+        phone: '',
+        role: 'customer',
+        authProvider: 'google',
+        googleId: profile.sub,
+        avatar: profile.picture || '',
+        emailVerified: true,
+        createdAt: new Date().toISOString()
+      };
+      users.push(user);
+    }
+
+    await db.saveData('users', users);
+    const token = createStatelessToken(user.id);
+    const { password: _, ...safe } = user;
+    return { user: safe, token };
+  },
+
   loginUser(email, password) {
     const user = users.find(u => u.email === email && u.password === password);
     if (!user) return { error: 'Invalid email or password' };
@@ -480,6 +550,8 @@ const store = {
       upiScreenshot: upiScreenshot || null,
       customer: { name, phone, address },
       status: 'confirmed',
+      statusHistory: [{ status: 'confirmed', at: new Date().toISOString(), by: 'system' }],
+      stockRestored: false,
       placedAt: new Date().toISOString(),
       estimatedDelivery: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
     };
@@ -611,22 +683,186 @@ const store = {
     }
   },
 
+  async sendCancellationEmail(email, order) {
+    const itemRows = order.items.map(i =>
+      `<tr><td style="padding:8px;border-bottom:1px solid #f0f0f0">${i.name}</td><td style="padding:8px;border-bottom:1px solid #f0f0f0;text-align:center">x${i.quantity}</td><td style="padding:8px;border-bottom:1px solid #f0f0f0;text-align:right">&#8377;${i.subtotal}</td></tr>`
+    ).join('');
+
+    // ── HTML Customer Email ──
+    const customerHtml = `<!DOCTYPE html><html><body style="margin:0;padding:0;font-family:Arial,sans-serif;background:#f4f4f4">
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
+  <tr><td style="background:#e74c3c;padding:32px;text-align:center">
+    <h1 style="color:#fff;margin:0;font-size:24px">Green Valley Poultry Farm</h1>
+    <p style="color:#fce4e4;margin:8px 0 0">Order Cancelled</p>
+  </td></tr>
+  <tr><td style="padding:32px">
+    <p style="font-size:16px;color:#333">Hi <strong>${order.customer.name}</strong>,</p>
+    <p style="color:#555">Your order <strong>${order.orderId}</strong> has been cancelled successfully.</p>
+    <table width="100%" style="background:#f9f9f9;border-radius:8px;padding:16px;margin:20px 0" cellpadding="0" cellspacing="0">
+      <tr><td style="padding:6px 0;color:#888;font-size:13px">Order ID</td><td style="padding:6px 0;font-weight:bold;text-align:right">${order.orderId}</td></tr>
+      <tr><td style="padding:6px 0;color:#888;font-size:13px">Total Amount</td><td style="padding:6px 0;text-align:right">&#8377;${order.totalPrice}</td></tr>
+    </table>
+    <p style="color:#888;font-size:13px;margin-top:32px">If you paid via UPI, any applicable refund will be processed according to our policy. For questions, reply to this email.</p>
+  </td></tr>
+  <tr><td style="background:#f9f9f9;padding:16px;text-align:center;color:#aaa;font-size:12px">
+    Green Valley Poultry Farm &mdash; Farm-fresh, delivered with care
+  </td></tr>
+</table></td></tr></table></body></html>`;
+
+    // ── HTML Admin Alert Email ──
+    const adminHtml = `<!DOCTYPE html><html><body style="margin:0;padding:0;font-family:Arial,sans-serif;background:#f4f4f4">
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
+  <tr><td style="background:#1a1a2e;padding:32px;text-align:center">
+    <h1 style="color:#e74c3c;margin:0;font-size:22px">Order Cancelled</h1>
+    <p style="color:#888;margin:8px 0 0;font-size:14px">${order.orderId}</p>
+  </td></tr>
+  <tr><td style="padding:32px">
+    <table width="100%" style="background:#f9f9f9;border-radius:8px;padding:16px;margin-bottom:20px" cellpadding="0" cellspacing="0">
+      <tr><td style="padding:6px 0;color:#888;font-size:13px">Customer</td><td style="padding:6px 0;font-weight:bold;text-align:right">${order.customer.name}</td></tr>
+      <tr><td style="padding:6px 0;color:#888;font-size:13px">Phone</td><td style="padding:6px 0;text-align:right">${order.customer.phone}</td></tr>
+      <tr><td style="padding:6px 0;color:#888;font-size:13px">Cancelled By</td><td style="padding:6px 0;text-align:right">${order.cancelledBy || 'System/Admin'}</td></tr>
+      <tr><td style="padding:6px 0;color:#888;font-size:13px">Total</td><td style="padding:6px 0;font-size:20px;font-weight:bold;text-align:right;color:#e74c3c">&#8377;${order.totalPrice}</td></tr>
+    </table>
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr style="background:#f0f0f0"><th style="padding:8px;text-align:left">Item</th><th style="padding:8px;text-align:center">Qty</th><th style="padding:8px;text-align:right">Price</th></tr>
+      ${itemRows}
+    </table>
+    <div style="margin-top:24px;text-align:center">
+      <a href="http://localhost:3000/admin.html" style="background:#d4a745;color:#000;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block">View in Admin Dashboard</a>
+    </div>
+  </td></tr>
+</table></td></tr></table></body></html>`;
+
+    if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+      const verifiedSender = process.env.SMTP_FROM || process.env.SMTP_USER;
+      const fromAddr = `"Green Valley Farm" <${verifiedSender}>`;
+      const replyTo = verifiedSender;
+      try {
+        await mailer.sendMail({
+          from: fromAddr,
+          replyTo,
+          to: email,
+          subject: `Order Cancelled - ${order.orderId}`,
+          html: customerHtml
+        });
+        console.log(`[Nodemailer] Sent HTML Cancellation to customer ${email}`);
+      } catch (err) {
+        console.error('[Nodemailer Customer Cancel Email Error]:', err.message);
+      }
+
+      // Find ALL admins and notify them
+      const admins = users.filter(u => u.role === 'admin');
+      const adminEmails = admins.length > 0 ? admins.map(u => u.email) : [replyTo];
+
+      for (const adminMail of adminEmails) {
+        try {
+          await mailer.sendMail({
+            from: fromAddr,
+            replyTo,
+            to: adminMail,
+            subject: `Order Cancelled ${order.orderId} - Rs.${order.totalPrice}`,
+            html: adminHtml
+          });
+          console.log(`[Nodemailer] Sent admin cancel alert to ${adminMail}`);
+        } catch (err) {
+          console.error(`[Nodemailer Admin Cancel Email Error to ${adminMail}]:`, err.message);
+        }
+      }
+    } else {
+      console.log(`[MOCK EMAIL] Order cancellation for ${email} — Order ${order.orderId}`);
+    }
+  },
+
   getOrders(userId) {
-    if (userId) return orders.filter(o => o.userId === userId);
-    return orders;
+    const list = userId ? orders.filter(o => o.userId === userId) : orders;
+    return list.map(o => ({
+      ...o,
+      cancelDeadline: getCancelDeadline(o).toISOString(),
+      canCancel: this.canCancelOrder(o)
+    }));
   },
 
   getAllOrders() { return orders; },
 
   getOrderById(orderId) {
-    return orders.find(o => o.orderId === orderId) || null;
+    const order = orders.find(o => o.orderId === orderId) || null;
+    if (!order) return null;
+    return {
+      ...order,
+      cancelDeadline: getCancelDeadline(order).toISOString(),
+      canCancel: this.canCancelOrder(order)
+    };
+  },
+
+  canCancelOrder(order) {
+    if (!order) return false;
+    if (!CUSTOMER_CANCELLABLE_STATUSES.includes(order.status)) return false;
+    return Date.now() <= getCancelDeadline(order).getTime();
+  },
+
+  async cancelOrder(orderId, userId) {
+    const order = orders.find(o => o.orderId === orderId);
+    if (!order) return { error: 'Order not found' };
+    if (order.userId !== userId) return { error: 'You can only cancel your own order' };
+    if (!this.canCancelOrder(order)) return { error: 'Cancellation is only available within 2 hours of placing the order and before dispatch' };
+
+    order.status = 'cancelled';
+    order.cancelledAt = new Date().toISOString();
+    order.cancelledBy = 'customer';
+    order.statusHistory = order.statusHistory || [];
+    order.statusHistory.push({ status: 'cancelled', at: order.cancelledAt, by: 'customer' });
+    restoreOrderStock(order);
+    await db.saveData('orders', orders);
+    await db.saveData('products', products);
+
+    this.addNotification({
+      type: 'order-cancelled',
+      title: 'Order Cancelled',
+      message: `${order.customer.name} cancelled order ${order.orderId}`,
+      orderId: order.orderId,
+      data: { customerName: order.customer.name, total: order.totalPrice }
+    });
+
+    const user = users.find(u => u.id === userId);
+    const resolvedEmail = user ? user.email : order.customer.email || `${order.customer.name.replace(/\s+/g,'').toLowerCase()}@mock.com`;
+    await this.sendCancellationEmail(resolvedEmail, order);
+
+    return {
+      ...order,
+      cancelDeadline: getCancelDeadline(order).toISOString(),
+      canCancel: false
+    };
   },
 
   async updateOrderStatus(orderId, status) {
+    if (!ORDER_STATUSES.includes(status)) return { error: 'Invalid order status' };
     const order = orders.find(o => o.orderId === orderId);
     if (!order) return { error: 'Order not found' };
+    const previousStatus = order.status;
+
+    if (status === 'cancelled') {
+      if (previousStatus !== 'cancelled') {
+        restoreOrderStock(order);
+        order.cancelledAt = order.cancelledAt || new Date().toISOString();
+        order.cancelledBy = order.cancelledBy || 'admin';
+        
+        const user = users.find(u => u.id === order.userId);
+        const resolvedEmail = user ? user.email : order.customer.email || `${order.customer.name.replace(/\s+/g,'').toLowerCase()}@mock.com`;
+        await this.sendCancellationEmail(resolvedEmail, order);
+      }
+    } else if (previousStatus === 'cancelled' && order.stockRestored) {
+      reserveOrderStock(order);
+      order.cancelledAt = null;
+      order.cancelledBy = null;
+    }
+
     order.status = status;
+    order.statusHistory = order.statusHistory || [];
+    order.statusHistory.push({ status, at: new Date().toISOString(), by: 'admin' });
     await db.saveData('orders', orders); // Explicitly lock update into MongoDB!
+    await db.saveData('products', products);
     return order;
   },
 
@@ -657,8 +893,9 @@ const store = {
 
   // ══════ DASHBOARD STATS ══════
   getDashboardStats() {
-    const totalRevenue = orders.reduce((s, o) => s + o.totalPrice, 0);
-    const todayOrders = orders.filter(o => {
+    const activeOrders = orders.filter(o => o.status !== 'cancelled');
+    const totalRevenue = activeOrders.reduce((s, o) => s + o.totalPrice, 0);
+    const todayOrders = activeOrders.filter(o => {
       const d = new Date(o.placedAt).toDateString();
       return d === new Date().toDateString();
     });

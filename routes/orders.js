@@ -27,9 +27,21 @@ router.get('/', (req, res) => {
 
 // GET /api/orders/:orderId
 router.get('/:orderId', (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(401).json({ success: false, error: 'Login required' });
   const order = store.getOrderById(req.params.orderId);
   if (!order) return res.status(404).json({ success: false, error: 'Order not found' });
+  if (order.userId !== userId) return res.status(403).json({ success: false, error: 'Access denied' });
   res.json({ success: true, order });
+});
+
+// PUT /api/orders/:orderId/cancel
+router.put('/:orderId/cancel', async (req, res) => {
+  const userId = req.userId;
+  if (!userId) return res.status(401).json({ success: false, error: 'Login required' });
+  const result = await store.cancelOrder(req.params.orderId, userId);
+  if (result.error) return res.status(400).json({ success: false, error: result.error });
+  res.json({ success: true, order: result });
 });
 
 module.exports = router;

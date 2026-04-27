@@ -27,6 +27,9 @@ const API = {
   },
 
   // Auth
+  async getAuthConfig() {
+    return this.request('/auth/config');
+  },
   async sendOtp(email, action, userData) {
     const data = await this.request('/auth/send-otp', { method: 'POST', body: JSON.stringify({ email, action, userData }) });
     // Store the otpToken for stateless verification on serverless platforms
@@ -47,6 +50,11 @@ const API = {
   },
   async login(email, password) {
     const data = await this.request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+    this.setToken(data.token); this.setUser(data.user);
+    return data;
+  },
+  async loginWithGoogle(credential) {
+    const data = await this.request('/auth/google', { method: 'POST', body: JSON.stringify({ credential }) });
     this.setToken(data.token); this.setUser(data.user);
     return data;
   },
@@ -77,6 +85,15 @@ const API = {
   // Orders
   async placeOrder(info) { return this.request('/orders', { method: 'POST', body: JSON.stringify(info) }); },
   async getOrders() { return this.request('/orders'); },
+  async cancelOrder(orderId) { return this.request(`/orders/${orderId}/cancel`, { method: 'PUT' }); },
+
+  // Payments
+  async createPaymentOrder(amount) {
+    return this.request('/payments/create-order', { method: 'POST', body: JSON.stringify({ amount }) });
+  },
+  async verifyPayment(details) {
+    return this.request('/payments/verify-payment', { method: 'POST', body: JSON.stringify(details) });
+  },
 
   // Farm
   async getFarmInfo() { return this.request('/farm'); },

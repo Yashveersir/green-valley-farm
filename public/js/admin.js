@@ -179,17 +179,23 @@ const AdminApp = {
   renderDashboard() {
     // Recent Orders
     const recent = this.orders.slice(0, 5);
-    document.getElementById('recent-orders-body').innerHTML = recent.map(o => `
+    document.getElementById('recent-orders-body').innerHTML = recent.map(o => {
+      const pm = o.paymentMethod || 'COD';
+      const isOnline = pm === 'Razorpay Online';
+      const pmLabel = isOnline ? '💳 Online' : (pm === 'UPI' ? '📱 UPI' : '💵 COD');
+      const pmColor = isOnline ? '#4ade80' : (pm === 'UPI' ? '#60a5fa' : 'var(--text-muted)');
+      return `
       <tr>
         <td><strong>${o.orderId}</strong></td>
         <td>${o.customer.name}</td>
         <td>${new Date(o.placedAt).toLocaleDateString()}</td>
         <td>₹${o.totalPrice}</td>
+        <td><span style="color:${pmColor};font-weight:600;font-size:12px;">${pmLabel}</span></td>
         <td><span class="order-status" style="border: 1px solid rgba(255,255,255,0.1); padding:4px 10px; border-radius:12px; font-size:12px;">${o.status}</span></td>
       </tr>
-    `).join('');
+    `}).join('');
     
-    if (!recent.length) document.getElementById('recent-orders-body').innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted)">No orders yet</td></tr>';
+    if (!recent.length) document.getElementById('recent-orders-body').innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted)">No orders yet</td></tr>';
 
     // Low stock
     const low = this.products.filter(p => p.stock <= 10).sort((a,b) => a.stock - b.stock).slice(0, 5);
@@ -295,26 +301,58 @@ const AdminApp = {
   // ── Orders ──
   renderOrders() {
     const tbody = document.getElementById('orders-table-body');
-    tbody.innerHTML = this.orders.map(o => `
+    tbody.innerHTML = this.orders.map(o => {
+      const pm = o.paymentMethod || 'COD';
+      const isOnline = pm === 'Razorpay Online';
+      const pmIcon = isOnline ? '💳' : (pm === 'UPI' ? '📱' : '💵');
+      const pmLabel = isOnline ? 'Razorpay Online' : pm;
+      const pmColor = isOnline ? '#4ade80' : (pm === 'UPI' ? '#60a5fa' : 'var(--text-muted)');
+      const verified = o.razorpayPaymentId ? '✅ Verified' : (isOnline ? '⏳ Pending' : '—');
+      const verifiedColor = o.razorpayPaymentId ? '#4ade80' : '#f59e0b';
+      const rpayId = o.razorpayPaymentId || '';
+      return `
       <tr>
         <td><strong>${o.orderId}</strong><br><small style="color:var(--text-muted)">${o.items.length} items</small></td>
         <td>${o.customer.name}<br><small style="color:var(--text-muted)">${o.customer.phone}</small></td>
         <td>${new Date(o.placedAt).toLocaleString('en-IN', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</td>
-        <td><strong>₹${o.totalPrice}</strong><br><small style="color:${o.paymentMethod==='UPI'?'var(--accent)':'var(--text-muted)'}">${o.paymentMethod}</small></td>
+        <td>
+          <strong>₹${o.totalPrice}</strong><br>
+          <span style="color:${pmColor};font-weight:600;font-size:12px;">${pmIcon} ${pmLabel}</span>
+        </td>
+        <td>
+          <span style="color:${verifiedColor};font-size:12px;font-weight:600;">${verified}</span>
+          ${rpayId ? `<br><small style="color:var(--text-muted);font-size:10px;cursor:pointer;" title="${rpayId}" onclick="navigator.clipboard.writeText('${rpayId}');AdminApp.toast('Payment ID copied!');">ID: ${rpayId.substring(0,14)}...</small>` : ''}
+        </td>
         <td>
           <select class="status-select" onchange="AdminApp.updateOrderStatus('${o.orderId}', this.value)" style="background:var(--bg-surface);color:var(--text);border:1px solid var(--border-subtle);padding:6px;border-radius:4px;">
             <option value="confirmed" ${o.status==='confirmed'?'selected':''}>Confirmed</option>
             <option value="processing" ${o.status==='processing'?'selected':''}>Processing</option>
             <option value="dispatched" ${o.status==='dispatched'?'selected':''}>Dispatched</option>
             <option value="delivered" ${o.status==='delivered'?'selected':''}>Delivered</option>
+            <option value="cancelled" ${o.status==='cancelled'?'selected':''}>Cancelled</option>
           </select>
         </td>
         <td style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button class="btn btn-outline btn-sm" onclick="alert('Delivery: ${o.customer.address}\\n\\nItems: ${o.items.map(i=>i.name+' x'+i.quantity).join(', ')}')">Details</button>
-          ${o.paymentMethod === 'UPI' && o.upiScreenshot ? `<button class="btn btn-outline btn-sm" style="color:var(--accent);border-color:var(--accent);" onclick="const w = window.open('','_blank'); w.document.write('<img src=\\'${o.upiScreenshot}\\' style=\\'max-width:100%;\\'>');">View SS</button>` : ''}
+          <button class="btn btn-outline btn-sm" onclick="AdminApp.showOrderDetails('${o.orderId}')">Details</button>
+          ${pm === 'UPI' && o.upiScreenshot ? `<button class="btn btn-outline btn-sm" style="color:var(--accent);border-color:var(--accent);" onclick="window.open('${o.upiScreenshot}','_blank')">View SS</button>` : ''}
         </td>
       </tr>
-    `).join('');
+    `}).join('');
+  },
+
+  showOrderDetails(orderId) {
+    const o = this.orders.find(x => x.orderId === orderId);
+    if (!o) return;
+    const pm = o.paymentMethod || 'COD';
+    const isOnline = pm === 'Razorpay Online';
+    const itemsList = o.items.map(i => `• ${i.name} × ${i.quantity} = ₹${i.price * i.quantity}`).join('\n');
+    let paymentInfo = `\n━━ Payment Info ━━\nMethod: ${pm}`;
+    if (isOnline) {
+      paymentInfo += `\nRazorpay Order ID: ${o.razorpayOrderId || 'N/A'}`;
+      paymentInfo += `\nRazorpay Payment ID: ${o.razorpayPaymentId || 'N/A'}`;
+      paymentInfo += `\nPayment Status: ${o.razorpayPaymentId ? '✅ Verified & Captured' : '⏳ Pending'}`;
+    }
+    alert(`📦 Order: ${o.orderId}\n\n━━ Customer ━━\nName: ${o.customer.name}\nPhone: ${o.customer.phone}\nAddress: ${o.customer.address}\n\n━━ Items ━━\n${itemsList}\n\nTotal: ₹${o.totalPrice}${paymentInfo}\n\n━━ Status ━━\n${o.status.toUpperCase()}\nPlaced: ${new Date(o.placedAt).toLocaleString('en-IN')}`);
   },
 
   async updateOrderStatus(id, status) {
@@ -323,6 +361,8 @@ const AdminApp = {
       this.toast('Order status updated');
       const o = this.orders.find(o => o.orderId === id);
       if (o) o.status = status;
+      await this.loadInitialData();
+      if (this.currentTab === 'orders') this.renderOrders();
     } catch (err) { this.toast(err.message, 'error'); }
   },
 

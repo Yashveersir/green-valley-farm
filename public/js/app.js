@@ -7,11 +7,15 @@ const App = {
   currentCategory: 'all',
   products: [],
   searchTimeout: null,
+  googleClientId: '',
+  googleButtonsRendered: false,
 
   async init() {
     this.bindEvents();
+    document.body.dataset.page = this.currentPage;
     await this.checkAuth();
     await this.loadProducts();
+    await this.initGoogleAuth();
     this.updateCartBadge();
   },
 
@@ -219,17 +223,104 @@ const App = {
 
   async handleLogout() {
     await API.logout();
+    if (window.google?.accounts?.id) google.accounts.id.disableAutoSelect();
     this.renderAuthUI(null);
     this.updateCartBadge();
     this.toast('Logged out', 'success');
     this.navigate('home');
   },
 
+  async initGoogleAuth() {
+    try {
+      const config = await API.getAuthConfig();
+      this.googleClientId = config.googleClientId || '';
+      this.razorpayKeyId = config.razorpayKeyId || '';
+      if (!this.googleClientId) {
+        this.setGoogleAuthNotes('Add GOOGLE_CLIENT_ID in .env to enable Google sign-in.');
+        return;
+      }
+
+      await this.waitForGoogleSdk();
+      google.accounts.id.initialize({
+        client_id: this.googleClientId,
+        callback: (response) => this.handleGoogleCredential(response),
+        auto_select: false,
+        cancel_on_tap_outside: true
+      });
+
+      ['google-login-btn', 'google-register-btn'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.innerHTML = '';
+        google.accounts.id.renderButton(el, {
+          type: 'standard',
+          theme: 'outline',
+          size: 'large',
+          text: id.includes('register') ? 'signup_with' : 'signin_with',
+          shape: 'pill',
+          width: Math.min(340, el.closest('.modal')?.clientWidth - 80 || 320)
+        });
+      });
+
+      this.googleButtonsRendered = true;
+      this.setGoogleAuthNotes('', true);
+    } catch (err) {
+      this.setGoogleAuthNotes('Google sign-in is unavailable right now.');
+    }
+  },
+
+  waitForGoogleSdk() {
+    if (window.google?.accounts?.id) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      let attempts = 0;
+      const timer = setInterval(() => {
+        attempts += 1;
+        if (window.google?.accounts?.id) {
+          clearInterval(timer);
+          resolve();
+        } else if (attempts >= 80) {
+          clearInterval(timer);
+          reject(new Error('Google SDK failed to load'));
+        }
+      }, 100);
+    });
+  },
+
+  setGoogleAuthNotes(message, hidden = false) {
+    ['google-login-note', 'google-register-note'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = message;
+      el.classList.toggle('hidden', hidden);
+    });
+  },
+
+  async handleGoogleCredential(response) {
+    if (!response?.credential) {
+      this.toast('Google sign-in was cancelled', 'error');
+      return;
+    }
+
+    try {
+      const data = await API.loginWithGoogle(response.credential);
+      this.closeModals();
+      this.renderAuthUI(data.user);
+      this.updateCartBadge();
+      this.toast(`Welcome, ${data.user.name}!`, 'success');
+    } catch (err) {
+      this.toast(err.message || 'Google sign-in failed', 'error');
+    }
+  },
+
   // ── Navigation ──
   navigate(page) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     const el = document.getElementById(`page-${page}`);
-    if (el) { el.classList.add('active'); this.currentPage = page; }
+    if (el) {
+      el.classList.add('active');
+      this.currentPage = page;
+      document.body.dataset.page = page;
+    }
     document.querySelectorAll('.nav-link').forEach(l => l.classList.toggle('active', l.dataset.page === page));
     window.scrollTo({ top: 0, behavior: 'smooth' });
     // Close user dropdown
@@ -318,10 +409,17 @@ const App = {
           <div class="product-card-meta"><span>⚖️ ${p.weight}</span><span>📍 ${(p.farmOrigin||'').split(' - ')[1]||p.farmOrigin}</span></div>
           <div class="product-card-footer">
             <div class="product-card-price">₹${p.price} <small>/ ${p.unit}</small></div>
-            <div style="display:flex;gap:8px;align-items:center;">
-              <button class="btn btn-outline btn-sm" onclick="App.viewProductDetails('${p.id}')">Details</button>
+            <div id="price-hint-${p.id}" style="font-size:12px; color:var(--primary); margin-bottom:6px; font-weight:600; display:none;"></div>
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+              <div class="qty-picker" style="display:flex;align-items:center;border:1px solid var(--border-subtle);border-radius:8px;overflow:hidden;background:var(--bg-surface);">
+                <button type="button" onclick="App.changeQty('${p.id}',-1)" style="width:30px;height:32px;border:none;background:transparent;color:var(--text);font-size:16px;cursor:pointer;font-weight:700;">−</button>
+                <input type="number" id="qty-${p.id}" value="1" min="1" max="${p.stock}" data-price="${p.price}" style="width:36px;text-align:center;border:none;background:transparent;color:var(--text);font-size:14px;font-weight:600;-moz-appearance:textfield;outline:none;" onchange="App.validateQty('${p.id}',${p.stock})">
+                <button type="button" onclick="App.changeQty('${p.id}',1)" style="width:30px;height:32px;border:none;background:transparent;color:var(--text);font-size:16px;cursor:pointer;font-weight:700;">+</button>
+              </div>
               <button class="add-to-cart-btn btn-sm" style="flex:1;padding:8px 12px;border:none;" id="atc-${p.id}" onclick="App.addToCart('${p.id}')" ${p.stock<=0?'disabled style="opacity:.4;pointer-events:none"':''}>🛒 Add</button>
+
             </div>
+            <button class="btn btn-outline btn-sm" style="width:100%;margin-top:6px;font-size:12px;" onclick="App.viewProductDetails('${p.id}')">View Details</button>
           </div>
         </div></div>`;
     }).join('');
@@ -349,18 +447,68 @@ const App = {
         stockBadge.textContent = p.stock <= 20 ? `Only ${p.stock} left` : 'In Stock';
         document.getElementById('pd-add-btn').disabled = false;
         document.getElementById('pd-add-btn').style.opacity = '1';
-        document.getElementById('pd-add-btn').onclick = () => { App.addToCart(p.id); App.closeModals(); };
+        
+        const qtyInput = document.getElementById('qty-pd');
+        if (qtyInput) {
+          qtyInput.value = 1;
+          qtyInput.max = p.stock;
+          qtyInput.dataset.price = p.price;
+          qtyInput.onchange = () => App.validateQty('pd', p.stock);
+          const priceHint = document.getElementById('price-hint-pd');
+          if (priceHint) priceHint.style.display = 'none';
+        }
+        
+        document.getElementById('pd-add-btn').onclick = () => { 
+          const q = document.getElementById('qty-pd') ? parseInt(document.getElementById('qty-pd').value) || 1 : 1;
+          App.addToCart(p.id, q); 
+          App.closeModals(); 
+        };
       }
       this.showModal('product-details');
     } catch (err) { }
   },
 
   // ── Cart ──
-  async addToCart(productId) {
+  changeQty(id, delta) {
+    const input = document.getElementById(`qty-${id}`);
+    if (!input) return;
+    let val = parseInt(input.value) || 1;
+    const max = parseInt(input.max) || 999;
+    val += delta;
+    if (val < 1) val = 1;
+    if (val > max) val = max;
+    input.value = val;
+    this.updatePriceHint(id, val, input.dataset.price);
+  },
+
+  validateQty(id, max) {
+    const input = document.getElementById(`qty-${id}`);
+    if (!input) return;
+    let val = parseInt(input.value);
+    if (isNaN(val) || val < 1) val = 1;
+    if (val > max) val = max;
+    input.value = val;
+    this.updatePriceHint(id, val, input.dataset.price);
+  },
+
+  updatePriceHint(id, qty, unitPrice) {
+    const priceHint = document.getElementById(`price-hint-${id}`);
+    if (!priceHint || !unitPrice) return;
+    if (qty > 1) {
+      priceHint.innerHTML = `Total: ₹${(parseFloat(unitPrice) * qty).toFixed(2)}`;
+      priceHint.style.display = 'block';
+    } else {
+      priceHint.style.display = 'none';
+    }
+  },
+
+  async addToCart(productId, quantityOverride = null) {
     if (!API.getToken()) { this.showModal('login'); this.toast('Please login first', 'error'); return; }
     const btn = document.getElementById(`atc-${productId}`);
+    const qtyInput = document.getElementById(`qty-${productId}`);
+    const quantity = quantityOverride || (qtyInput ? parseInt(qtyInput.value) || 1 : 1);
     try {
-      await API.addToCart(productId, 1);
+      await API.addToCart(productId, quantity);
       if (btn) { btn.classList.add('added'); btn.innerHTML = '✓ Added'; setTimeout(() => { btn.classList.remove('added'); btn.innerHTML = '🛒 Add'; }, 1500); }
       this.updateCartBadge();
       this.toast('Added to cart!', 'success');
@@ -433,62 +581,82 @@ const App = {
     let paymentMethod = 'COD';
     const methodRadios = document.getElementsByName('payment-method');
     for (const r of methodRadios) { if (r.checked) paymentMethod = r.value; }
-    
-    let upiUtr = '';
-    let upiScreenshot = null;
-    
-    if (paymentMethod === 'UPI') {
-      upiUtr = document.getElementById('upi-utr').value.trim();
-      if (upiUtr.length !== 12 || isNaN(upiUtr)) {
-        this.toast('Please enter a valid 12-digit UPI UTR number', 'error');
-        return;
-      }
-      
-      const fileInput = document.getElementById('upi-screenshot');
-      if (!fileInput.files.length) {
-        this.toast('Payment screenshot is absolutely required for UPI verification', 'error');
-        return;
-      }
-      
-      const file = fileInput.files[0];
-      if (file.size > 2 * 1024 * 1024) {
-        this.toast('Image must be less than 2MB', 'error');
-        return;
-      }
-      
-      // Convert image gracefully to base64 inline string format so native generic API structure retains form
-      try {
-        upiScreenshot = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result);
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
-      } catch(err) {
-        this.toast('Failed to load screenshot format.', 'error');
-        return;
-      }
-    }
 
     const payload = {
       name: document.getElementById('customer-name').value,
       phone: document.getElementById('customer-phone').value,
       address: document.getElementById('customer-address').value,
-      paymentMethod,
-      upiUtr,
-      upiScreenshot
+      paymentMethod
     };
     
     const btn = document.getElementById('place-order-btn');
-    btn.disabled = true; btn.innerHTML = '⏳ Placing...';
+    btn.disabled = true; btn.innerHTML = '⏳ Processing...';
     try {
-      const data = await API.placeOrder(payload);
-      this.updateCartBadge();
-      this.renderOrderSuccess(data.order);
-      document.getElementById('checkout-form').reset();
-      this.toast('Order placed!', 'success');
-    } catch (err) { this.toast(err.message, 'error'); }
-    btn.disabled = false; btn.innerHTML = '✓ Place Order';
+      if (paymentMethod === 'ONLINE') {
+        const cartData = await API.getCart();
+        const totalPrice = cartData.cart.totalPrice;
+        if (totalPrice < 1) {
+            this.toast('Order amount is too small for online payment.', 'error');
+            btn.disabled = false; btn.innerHTML = '✓ Place Order';
+            return;
+        }
+
+        const orderData = await API.createPaymentOrder(Math.round(totalPrice * 100));
+        
+        const options = {
+          key: this.razorpayKeyId,
+          amount: orderData.amount,
+          currency: orderData.currency,
+          name: 'Green Valley Poultry Farm',
+          description: 'Payment for your order',
+          order_id: orderData.order_id,
+          handler: async (response) => {
+            try {
+              const verifyRes = await API.verifyPayment({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                orderDetails: payload
+              });
+              this.updateCartBadge();
+              this.renderOrderSuccess(verifyRes.order);
+              document.getElementById('checkout-form').reset();
+              this.toast('Order placed & Paid successfully!', 'success');
+              btn.disabled = false; btn.innerHTML = '✓ Place Order';
+            } catch (err) {
+              this.toast(err.message || 'Payment verification failed', 'error');
+              btn.disabled = false; btn.innerHTML = '✓ Place Order';
+            }
+          },
+          prefill: {
+            name: payload.name,
+            contact: payload.phone
+          },
+          theme: { color: '#2ecc71' },
+          modal: {
+            ondismiss: () => {
+              this.toast('Payment cancelled', 'error');
+              btn.disabled = false; btn.innerHTML = '✓ Place Order';
+            }
+          }
+        };
+        const rzp = new Razorpay(options);
+        rzp.on('payment.failed', (response) => {
+          this.toast(response.error.description || 'Payment Failed', 'error');
+        });
+        rzp.open();
+      } else {
+        const data = await API.placeOrder(payload);
+        this.updateCartBadge();
+        this.renderOrderSuccess(data.order);
+        document.getElementById('checkout-form').reset();
+        this.toast('Order placed!', 'success');
+        btn.disabled = false; btn.innerHTML = '✓ Place Order';
+      }
+    } catch (err) {
+      this.toast(err.message, 'error');
+      btn.disabled = false; btn.innerHTML = '✓ Place Order';
+    }
   },
 
   renderOrderSuccess(order) {
@@ -517,14 +685,76 @@ const App = {
       const emptyEl = document.getElementById('orders-empty');
       if (!data.orders.length) { el.innerHTML = ''; emptyEl.style.display = 'block'; return; }
       emptyEl.style.display = 'none';
-      el.innerHTML = data.orders.map(o => `
-        <div class="order-card"><div class="order-card-header"><span class="order-card-id">${o.orderId}</span><span class="order-status">${o.status}</span></div>
-        <div class="order-card-items">${o.items.map(i => `<div class="order-card-item"><span>${i.emoji} ${i.name} × ${i.quantity}</span><span>₹${i.subtotal}</span></div>`).join('')}</div>
-        <div class="order-card-footer"><span style="color:var(--text-muted);font-size:13px">📅 ${new Date(o.placedAt).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}</span><span class="order-card-total">₹${o.totalPrice}</span></div></div>`).join('');
+      el.innerHTML = data.orders.map(o => {
+        const canCancel = this.canCancelOrder(o);
+        const deadlineText = o.cancelDeadline ? new Date(o.cancelDeadline).toLocaleString('en-IN', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }) : '';
+        return `
+        <div class="order-card">
+          <div class="order-card-header">
+            <div><span class="order-card-id">${o.orderId}</span><div class="order-date">Placed ${new Date(o.placedAt).toLocaleString('en-IN',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}</div></div>
+            <span class="order-status ${this.orderStatusClass(o.status)}">${this.formatOrderStatus(o.status)}</span>
+          </div>
+          <div class="order-progress">${this.renderOrderSteps(o.status)}</div>
+          <div class="order-card-items">${o.items.map(i => `<div class="order-card-item"><span>${i.emoji} ${i.name} × ${i.quantity}</span><span>₹${i.subtotal}</span></div>`).join('')}</div>
+          <div class="order-policy ${canCancel ? 'active' : ''}">${canCancel ? `Cancellation available until ${deadlineText}` : this.getOrderPolicyText(o)}</div>
+          <div class="order-card-footer"><span style="color:var(--text-muted);font-size:13px">Payment: ${o.paymentMethod || 'COD'}</span><span class="order-card-total">₹${o.totalPrice}</span></div>
+          <div class="order-card-actions">${canCancel ? `<button class="btn btn-danger btn-sm" onclick="App.cancelOrder('${o.orderId}')">Cancel Order</button>` : ''}</div>
+        </div>`;
+      }).join('');
     } catch (err) { this.toast('Failed to load orders', 'error'); }
   },
 
-  // ── About ──
+  // Order helpers
+  formatOrderStatus(status) {
+    const labels = {
+      confirmed: 'Confirmed',
+      processing: 'Processing',
+      dispatched: 'Dispatched',
+      delivered: 'Delivered',
+      cancelled: 'Cancelled'
+    };
+    return labels[status] || status || 'Confirmed';
+  },
+
+  orderStatusClass(status) {
+    return `status-${(status || 'confirmed').toLowerCase()}`;
+  },
+
+  canCancelOrder(order) {
+    if (!order?.canCancel || !order.cancelDeadline) return false;
+    return Date.now() <= new Date(order.cancelDeadline).getTime();
+  },
+
+  getOrderPolicyText(order) {
+    if (order.status === 'cancelled') return 'This order has been cancelled.';
+    if (['dispatched', 'delivered'].includes(order.status)) return 'Cancellation is closed after dispatch.';
+    if (order.cancelDeadline) {
+      return `Cancellation window ended ${new Date(order.cancelDeadline).toLocaleString('en-IN', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' })}.`;
+    }
+    return 'Cancellation is not available for this order.';
+  },
+
+  renderOrderSteps(status) {
+    const steps = ['confirmed', 'processing', 'dispatched', 'delivered'];
+    if (status === 'cancelled') {
+      return '<span class="order-step done">Confirmed</span><span class="order-step cancelled">Cancelled</span>';
+    }
+    const activeIndex = Math.max(0, steps.indexOf(status));
+    return steps.map((step, index) => `<span class="order-step ${index <= activeIndex ? 'done' : ''}">${this.formatOrderStatus(step)}</span>`).join('');
+  },
+
+  async cancelOrder(orderId) {
+    if (!confirm('Cancel this order? This can only be done within 2 hours of placing it.')) return;
+    try {
+      await API.cancelOrder(orderId);
+      this.toast('Order cancelled successfully', 'success');
+      this.loadOrders();
+    } catch (err) {
+      this.toast(err.message || 'Unable to cancel order', 'error');
+    }
+  },
+
+  // About
   async loadAbout() {
     try {
       const data = await API.getFarmInfo(); const f = data.farm;
