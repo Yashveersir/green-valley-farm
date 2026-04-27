@@ -4,10 +4,15 @@ const Razorpay = require('razorpay');
 const crypto = require('crypto');
 const store = require('../models/store');
 
-const razorpayInstance = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
-});
+let razorpayInstance = null;
+try {
+  razorpayInstance = new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID || 'mock_key_id',
+    key_secret: process.env.RAZORPAY_KEY_SECRET || 'mock_key_secret',
+  });
+} catch (err) {
+  console.warn('Razorpay initialization failed:', err.message);
+}
 
 // POST /api/payments/create-order
 router.post('/create-order', async (req, res) => {
