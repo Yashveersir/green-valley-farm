@@ -531,7 +531,7 @@ const store = {
   async placeOrder(userId, customerInfo) {
     const cart = carts[userId] || [];
     if (!cart.length) return { error: 'Cart is empty' };
-    const { name, phone, address, paymentMethod, upiUtr, upiScreenshot } = customerInfo;
+    const { name, phone, address, paymentMethod, upiUtr, upiScreenshot, razorpayOrderId, razorpayPaymentId } = customerInfo;
     if (!name || !phone || !address) return { error: 'Name, phone, and address are required' };
 
     for (const item of cart) {
@@ -548,6 +548,8 @@ const store = {
       paymentMethod: paymentMethod || 'COD',
       upiUtr: upiUtr || null,
       upiScreenshot: upiScreenshot || null,
+      razorpayOrderId: razorpayOrderId || null,
+      razorpayPaymentId: razorpayPaymentId || null,
       customer: { name, phone, address },
       status: 'confirmed',
       statusHistory: [{ status: 'confirmed', at: new Date().toISOString(), by: 'system' }],
@@ -579,9 +581,14 @@ const store = {
   },
 
   async sendEmailNotification(email, order) {
-    const paymentLine = order.paymentMethod === 'UPI'
-      ? `UPI (UTR: ${order.upiUtr || 'Pending Verification'})`
-      : `Cash on Delivery`;
+    let paymentLine = order.paymentMethod || 'Cash on Delivery';
+    if (order.paymentMethod === 'UPI') {
+      paymentLine = `UPI (UTR: ${order.upiUtr || 'Pending Verification'})`;
+    } else if (order.paymentMethod === 'Razorpay Online' || order.paymentMethod === 'Razorpay') {
+      paymentLine = `Razorpay Online ${order.upiUtr ? `(ID: ${order.upiUtr})` : ''}`;
+    } else if (order.paymentMethod === 'COD') {
+      paymentLine = 'Cash on Delivery';
+    }
 
     const itemRows = order.items.map(i =>
       `<tr><td style="padding:8px;border-bottom:1px solid #f0f0f0">${i.name}</td><td style="padding:8px;border-bottom:1px solid #f0f0f0;text-align:center">x${i.quantity}</td><td style="padding:8px;border-bottom:1px solid #f0f0f0;text-align:right">&#8377;${i.subtotal}</td></tr>`
@@ -637,7 +644,7 @@ const store = {
       ${itemRows}
     </table>
     <div style="margin-top:24px;text-align:center">
-      <a href="http://localhost:3000/admin.html" style="background:#d4a745;color:#000;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block">View in Admin Dashboard</a>
+      <a href="https://www.green-valley-farm.online/admin.html" style="background:#d4a745;color:#000;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block">View in Admin Dashboard</a>
     </div>
   </td></tr>
 </table></td></tr></table></body></html>`;
@@ -703,7 +710,7 @@ const store = {
       <tr><td style="padding:6px 0;color:#888;font-size:13px">Order ID</td><td style="padding:6px 0;font-weight:bold;text-align:right">${order.orderId}</td></tr>
       <tr><td style="padding:6px 0;color:#888;font-size:13px">Total Amount</td><td style="padding:6px 0;text-align:right">&#8377;${order.totalPrice}</td></tr>
     </table>
-    <p style="color:#888;font-size:13px;margin-top:32px">If you paid via UPI, any applicable refund will be processed according to our policy. For questions, reply to this email.</p>
+    <p style="color:#888;font-size:13px;margin-top:32px">If you paid online (UPI or Razorpay), any applicable refund will be processed according to our policy. For questions, reply to this email.</p>
   </td></tr>
   <tr><td style="background:#f9f9f9;padding:16px;text-align:center;color:#aaa;font-size:12px">
     Green Valley Poultry Farm &mdash; Farm-fresh, delivered with care
@@ -730,7 +737,7 @@ const store = {
       ${itemRows}
     </table>
     <div style="margin-top:24px;text-align:center">
-      <a href="http://localhost:3000/admin.html" style="background:#d4a745;color:#000;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block">View in Admin Dashboard</a>
+      <a href="https://www.green-valley-farm.online/admin.html" style="background:#d4a745;color:#000;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block">View in Admin Dashboard</a>
     </div>
   </td></tr>
 </table></td></tr></table></body></html>`;

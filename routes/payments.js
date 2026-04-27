@@ -65,7 +65,9 @@ router.post('/verify-payment', async (req, res) => {
       const result = await store.placeOrder(userId, { 
         name, phone, address, 
         paymentMethod: 'Razorpay Online',
-        upiUtr: razorpay_payment_id // Storing payment_id here for reference
+        upiUtr: razorpay_payment_id, // Keeping this for backward compatibility or generic ID tracking
+        razorpayOrderId: razorpay_order_id,
+        razorpayPaymentId: razorpay_payment_id
       });
       
       if (result.error) return res.status(400).json({ success: false, error: result.error });

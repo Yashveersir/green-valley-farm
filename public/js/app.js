@@ -671,7 +671,7 @@ const App = {
         <div class="order-detail-row"><span>Items</span><span>${order.totalItems} items</span></div>
         <div class="order-detail-row"><span>Total</span><span style="color:var(--accent);font-weight:800">₹${order.totalPrice}</span></div>
         <div class="order-detail-row"><span>Delivery</span><span>Est. ${order.estimatedDelivery}</span></div>
-        <div class="order-detail-row"><span>Payment</span><span>Cash on Delivery</span></div>
+        <div class="order-detail-row"><span>Payment</span><span>${order.paymentMethod === 'COD' ? 'Cash on Delivery' : order.paymentMethod}</span></div>
       </div>
       <button class="btn btn-primary btn-lg" onclick="App.navigate('home')">Continue Shopping</button>
       <button class="btn btn-outline" style="margin-left:12px" onclick="App.navigate('orders')">View Orders</button>`;
