@@ -669,18 +669,25 @@ const App = {
   initCookieBanner() {
     const banner = document.getElementById('cookie-banner');
     if (!banner) return;
-    if (localStorage.getItem(this.cookieConsentKey) === 'accepted') return;
+    document.getElementById('cookie-dismiss-btn')?.addEventListener('click', () => this.dismissCookieBanner());
+    document.getElementById('cookie-accept-btn')?.addEventListener('click', () => this.acceptCookieBanner());
+    if (localStorage.getItem(this.cookieConsentKey)) return;
     banner.hidden = false;
   },
 
-  dismissCookieBanner() {
+  hideCookieBanner() {
     const banner = document.getElementById('cookie-banner');
     if (banner) banner.hidden = true;
   },
 
+  dismissCookieBanner() {
+    localStorage.setItem(this.cookieConsentKey, 'dismissed');
+    this.hideCookieBanner();
+  },
+
   acceptCookieBanner() {
     localStorage.setItem(this.cookieConsentKey, 'accepted');
-    this.dismissCookieBanner();
+    this.hideCookieBanner();
   },
 
   async deleteProductReview(productId = null) {
