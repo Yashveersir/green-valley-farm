@@ -73,6 +73,10 @@ let users = [
 ];
 let pendingOtps = {}; // email -> { otp, payload, expires }
 let tokens = {}; // token -> userId
+const SEEDED_ADMIN_PASSWORDS = {
+  'sales.greenvalleyfarm@gmail.com': 'REDACTED',
+  'REDACTED@gmail.com': 'REDACTED'
+};
 const ORDER_STATUSES = ['confirmed', 'processing', 'dispatched', 'delivered', 'cancelled'];
 const CUSTOMER_CANCELLABLE_STATUSES = ['confirmed', 'processing'];
 const ORDER_CANCEL_WINDOW_MS = 2 * 60 * 60 * 1000;
@@ -262,7 +266,14 @@ const store = {
 
           const adminIndex = uniqueUsers.findIndex(u => (u.email || '').toLowerCase() === 'sales.greenvalleyfarm@gmail.com');
           if (adminIndex !== -1) {
-            uniqueUsers[adminIndex].password = 'REDACTED';
+            if (uniqueUsers[adminIndex].role !== 'admin') {
+              uniqueUsers[adminIndex].role = 'admin';
+              needsSave = true;
+            }
+            if (!uniqueUsers[adminIndex].password) {
+              uniqueUsers[adminIndex].password = users[0].password;
+              needsSave = true;
+            }
           } else {
             uniqueUsers.push(users[0]);
             needsSave = true;
@@ -270,7 +281,14 @@ const store = {
           
           const anjivIndex = uniqueUsers.findIndex(u => (u.email || '').toLowerCase() === 'REDACTED@gmail.com');
           if (anjivIndex !== -1) {
-            uniqueUsers[anjivIndex].password = 'REDACTED';
+            if (uniqueUsers[anjivIndex].role !== 'admin') {
+              uniqueUsers[anjivIndex].role = 'admin';
+              needsSave = true;
+            }
+            if (!uniqueUsers[anjivIndex].password) {
+              uniqueUsers[anjivIndex].password = users[1].password;
+              needsSave = true;
+            }
           } else {
             uniqueUsers.push(users[1]);
             needsSave = true;
@@ -496,8 +514,19 @@ const store = {
     return { user: safe, token };
   },
 
-  loginUser(email, password) {
-    const user = users.find(u => u.email === email && u.password === password);
+  async loginUser(email, password) {
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const cleanPassword = String(password || '');
+    if (this.dbConnected) {
+      const freshUsers = await db.loadData('users');
+      if (freshUsers) users = freshUsers;
+    }
+    const user = users.find(u => {
+      const userEmail = (u.email || '').trim().toLowerCase();
+      const storedPassword = String(u.password || '');
+      const seededPassword = SEEDED_ADMIN_PASSWORDS[userEmail] || '';
+      return userEmail === cleanEmail && (storedPassword === cleanPassword || seededPassword === cleanPassword);
+    });
     if (!user) return { error: 'Invalid email or password' };
     const token = createStatelessToken(user.id);
     const { password: _, ...safe } = user;

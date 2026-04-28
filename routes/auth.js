@@ -77,10 +77,10 @@ router.post('/register', async (req, res) => {
 });
 
 // POST /api/auth/login
-router.post('/login', (req, res) => {
+router.post('/login', async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ success: false, error: 'Email and password required' });
-  const result = store.loginUser(email, password);
+  const result = await store.loginUser(email, password);
   if (result.error) return res.status(401).json({ success: false, error: result.error });
   res.json({ success: true, ...result });
 });
