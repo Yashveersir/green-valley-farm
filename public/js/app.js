@@ -254,9 +254,23 @@ const App = {
       await this.waitForGoogleSdk();
       google.accounts.id.initialize({
         client_id: this.googleClientId,
-        callback: (response) => this.handleGoogleCredential(response),
+        ux_mode: 'popup',
+        callback: (response) => {
+          console.log('Google credential received');
+          this.handleGoogleCredential(response);
+        },
+        error_callback: (error) => {
+          console.error('Google sign-in error:', error);
+          const messageByType = {
+            popup_failed_to_open: 'Google sign-in popup could not open. Please allow popups and try again.',
+            popup_closed: 'Google sign-in was closed before it finished.',
+            unknown: 'Google sign-in could not complete. Please try again.'
+          };
+          this.toast(messageByType[error?.type] || 'Google sign-in could not complete. Please try again.', 'error');
+        },
         auto_select: false,
-        cancel_on_tap_outside: true
+        cancel_on_tap_outside: true,
+        itp_support: true
       });
 
       ['google-login-btn', 'google-register-btn'].forEach((id) => {
@@ -324,7 +338,7 @@ const App = {
   },
 
   // ── Navigation ──
-  navigate(page) {
+  navigate(page, targetId = null) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     const el = document.getElementById(`page-${page}`);
     if (el) {
@@ -333,7 +347,16 @@ const App = {
       document.body.dataset.page = page;
     }
     document.querySelectorAll('.nav-link').forEach(l => l.classList.toggle('active', l.dataset.page === page));
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    if (targetId) {
+      setTimeout(() => {
+        const target = document.getElementById(targetId);
+        if (target) target.scrollIntoView({ behavior: 'smooth' });
+      }, 50);
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
     // Close user dropdown
     const dd = document.getElementById('user-dropdown');
     if (dd) dd.classList.remove('open');
@@ -342,6 +365,33 @@ const App = {
     if (page === 'checkout') { if (!API.getToken()) { this.showModal('login'); this.toast('Please login to checkout', 'error'); return; } this.renderCheckoutSummary(); }
     if (page === 'orders') { if (!API.getToken()) { this.showModal('login'); return; } this.loadOrders(); }
     if (page === 'about') this.loadAbout();
+  },
+
+  async browseCategory(cat, options = {}) {
+    const { direct = false } = options;
+    this.currentCategory = cat;
+    if (this.currentPage !== 'home') {
+      this.navigate('home');
+      await new Promise(resolve => setTimeout(resolve, 80));
+    } else if (!direct) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    document.querySelectorAll('.cat-btn').forEach(b => b.classList.toggle('active', b.dataset.category === cat));
+    await this.loadProducts();
+    this.scrollToCategoryLocation(cat, { direct });
+  },
+
+  scrollToCategoryLocation(cat, options = {}) {
+    const { direct = false } = options;
+    const target = direct
+      ? document.querySelector('#products-grid .product-card')
+      : document.querySelector(`.cat-btn[data-category="${cat}"]`) || document.querySelector('#products-grid .product-card');
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+    const section = document.getElementById('products-section');
+    if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
   },
 
   // ── Events ──

@@ -30,19 +30,20 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://accounts.google.com", "https://checkout.razorpay.com", "https://cdn.razorpay.com", "https://checkout-static-next.razorpay.com", "https://www.googletagmanager.com", "https://www.google-analytics.com"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://accounts.google.com", "https://accounts.google.com/gsi/client", "https://checkout.razorpay.com", "https://cdn.razorpay.com", "https://checkout-static-next.razorpay.com", "https://www.googletagmanager.com", "https://www.google-analytics.com"],
       scriptSrcAttr: ["'unsafe-inline'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://accounts.google.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://accounts.google.com", "https://accounts.google.com/gsi/style"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "blob:", "https:", "http:"],
-      connectSrc: ["'self'", "https://accounts.google.com", "https://api.razorpay.com", "https://lux-gateway.razorpay.com", "https://lumberjack.razorpay.com", "https://cdn.razorpay.com", "https://checkout-static-next.razorpay.com", "https://www.google-analytics.com"],
-      frameSrc: ["'self'", "https://accounts.google.com", "https://api.razorpay.com"],
+      connectSrc: ["'self'", "https://accounts.google.com", "https://accounts.google.com/gsi/", "https://api.razorpay.com", "https://lux-gateway.razorpay.com", "https://lumberjack.razorpay.com", "https://cdn.razorpay.com", "https://checkout-static-next.razorpay.com", "https://www.google-analytics.com", "https://oauth2.googleapis.com"],
+      frameSrc: ["'self'", "https://accounts.google.com", "https://accounts.google.com/gsi/", "https://api.razorpay.com"],
       objectSrc: ["'none'"],
       upgradeInsecureRequests: [],
     },
   },
   crossOriginEmbedderPolicy: false,
   crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
 }));
 
 // ── Gzip/Brotli Compression ──
@@ -162,6 +163,7 @@ ${urls.map(url => `  <url>
 
 app.use(globalLimiter);
 app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(reviewPayloadGuard);
 
 // ── Static files with caching headers ──
