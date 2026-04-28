@@ -207,6 +207,122 @@ The `vercel.json` file includes:
 - Static file serving from `public/` directory
 - Route rewrites for client-side routing
 
+### Search Engine Deployment Checklist
+
+The app is ready for Google Search Console, Bing Webmaster Tools, and IndexNow after the following production environment variables are configured.
+
+#### Required site URL
+
+Set the public canonical site URL used by `robots.txt`, `sitemap.xml`, and product canonical URLs:
+
+```env
+SITE_URL=https://www.green-valley-farm.online
+```
+
+Use the final production origin only. Do not include a trailing slash.
+
+#### Google Search Console
+
+1. In Google Search Console, add the production property for `https://www.green-valley-farm.online`.
+2. Choose the HTML meta tag verification method.
+3. Copy only the `content` value from the tag.
+4. Add it to deployment environment variables:
+
+```env
+GOOGLE_SITE_VERIFICATION=google_meta_tag_content_value_here
+```
+
+The app renders this as:
+
+```html
+<meta name="google-site-verification" content="...">
+```
+
+After deploy, verify that the tag appears on `/` and a product page, then click **Verify** in Google Search Console. Submit:
+
+```text
+https://www.green-valley-farm.online/sitemap.xml
+```
+
+#### Bing Webmaster Tools
+
+Bing supports two verification paths in this app. Use either the meta tag route or the XML file route.
+
+For Bing meta tag verification:
+
+1. In Bing Webmaster Tools, add the production site.
+2. Choose HTML meta tag verification.
+3. Copy only the `content` value from the `msvalidate.01` tag.
+4. Add it to deployment environment variables:
+
+```env
+BING_SITE_VERIFICATION=bing_meta_tag_content_value_here
+```
+
+The app renders this as:
+
+```html
+<meta name="msvalidate.01" content="...">
+```
+
+For Bing XML file verification:
+
+1. Choose the XML file verification option.
+2. Copy the full XML file contents provided by Bing.
+3. Add the XML contents to deployment environment variables:
+
+```env
+BING_XML_VERIFICATION=<users><user>bing_xml_value_here</user></users>
+```
+
+After deploy, confirm this endpoint returns the XML:
+
+```text
+https://www.green-valley-farm.online/BingSiteAuth.xml
+```
+
+Then click **Verify** in Bing Webmaster Tools and submit:
+
+```text
+https://www.green-valley-farm.online/sitemap.xml
+```
+
+#### IndexNow
+
+1. Generate a random IndexNow key, usually a 32-64 character hex string.
+2. Add it to deployment environment variables:
+
+```env
+INDEXNOW_KEY=random_indexnow_key_here
+```
+
+After deploy, confirm the key file route returns the exact key:
+
+```text
+https://www.green-valley-farm.online/random_indexnow_key_here.txt
+```
+
+Use that same key when submitting URLs through the IndexNow API. The app exposes the key file, but URL submission still needs to happen from an external submitter, deployment hook, or manual API call.
+
+#### Post-deploy checks
+
+After setting the env values and redeploying, verify these public URLs:
+
+```text
+https://www.green-valley-farm.online/
+https://www.green-valley-farm.online/robots.txt
+https://www.green-valley-farm.online/sitemap.xml
+https://www.green-valley-farm.online/BingSiteAuth.xml
+https://www.green-valley-farm.online/<INDEXNOW_KEY>.txt
+```
+
+Expected results:
+- `/` includes Google and/or Bing verification meta tags when configured.
+- `/robots.txt` lists `https://www.green-valley-farm.online/sitemap.xml`.
+- `/sitemap.xml` returns XML with home, legal pages, and product URLs.
+- `/BingSiteAuth.xml` returns `404 Not configured` until `BING_XML_VERIFICATION` is set.
+- `/<INDEXNOW_KEY>.txt` returns `404 Not configured` until `INDEXNOW_KEY` is set.
+
 ### Manual Deployment
 For traditional hosting:
 ```bash
@@ -231,6 +347,11 @@ NODE_ENV=production npm start
 | `TWILIO_PHONE_NUMBER` | Twilio phone number | (optional) |
 | `RAZORPAY_KEY_ID` | Razorpay API Key ID | (required for online payments) |
 | `RAZORPAY_KEY_SECRET` | Razorpay API Key Secret | (required for online payments) |
+| `SITE_URL` | Public production origin used for canonical URLs, sitemap URLs, and robots.txt sitemap link | `https://www.green-valley-farm.online` |
+| `GOOGLE_SITE_VERIFICATION` | Google Search Console HTML meta tag `content` value | (optional) |
+| `BING_SITE_VERIFICATION` | Bing Webmaster Tools `msvalidate.01` meta tag `content` value | (optional) |
+| `BING_XML_VERIFICATION` | Full Bing XML verification file contents served at `/BingSiteAuth.xml` | (optional) |
+| `INDEXNOW_KEY` | IndexNow key served at `/<INDEXNOW_KEY>.txt` | (optional) |
 
 ## 🔒 Security Features
 

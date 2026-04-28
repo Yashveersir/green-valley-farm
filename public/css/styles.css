@@ -176,6 +176,38 @@ img { max-width: 100%; display: block; }
   50% { transform: scale(1.4); }
 }
 
+.cookie-banner {
+  position: fixed;
+  left: 24px;
+  right: 24px;
+  bottom: 24px;
+  z-index: 200;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 18px;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(212, 167, 69, 0.25);
+  background: rgba(17, 42, 26, 0.96);
+  box-shadow: var(--shadow-lg);
+}
+
+.cookie-banner[hidden] { display: none; }
+.cookie-banner-text {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+.cookie-banner-text a {
+  color: var(--accent);
+  text-decoration: underline;
+}
+.cookie-banner-actions {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
 /* ═══ HERO ═══ */
 .hero {
   position: relative; height: 85vh; min-height: 550px;

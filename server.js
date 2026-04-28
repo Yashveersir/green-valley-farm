@@ -19,6 +19,11 @@ const paymentsRouter = require('./routes/payments');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const SITE_URL = process.env.SITE_URL || 'https://www.green-valley-farm.online';
+const GOOGLE_SITE_VERIFICATION = process.env.GOOGLE_SITE_VERIFICATION || '';
+const BING_SITE_VERIFICATION = process.env.BING_SITE_VERIFICATION || '';
+const BING_XML_VERIFICATION = process.env.BING_XML_VERIFICATION || '';
+const INDEXNOW_KEY = process.env.INDEXNOW_KEY || '';
 
 // ── Security Headers (Helmet) ──
 app.use(helmet({
@@ -127,6 +132,33 @@ function escapeJson(value) {
   return JSON.stringify(value).replace(/</g, '\\u003c');
 }
 
+function getVerificationMetaTags() {
+  let tags = '';
+  if (GOOGLE_SITE_VERIFICATION) {
+    tags += `<meta name="google-site-verification" content="${escapeHtml(GOOGLE_SITE_VERIFICATION)}">`;
+  }
+  if (BING_SITE_VERIFICATION) {
+    tags += `<meta name="msvalidate.01" content="${escapeHtml(BING_SITE_VERIFICATION)}">`;
+  }
+  return tags;
+}
+
+function buildSitemapXml() {
+  const staticPaths = ['/', '/privacy.html', '/terms.html'];
+  const productPaths = store.getAllProducts().map(product => `/products/${product.slug}`);
+  const urls = [...staticPaths, ...productPaths];
+  const lastmod = new Date().toISOString();
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${urls.map(url => `  <url>
+    <loc>${SITE_URL}${url}</loc>
+    <lastmod>${lastmod}</lastmod>
+    <changefreq>${url === '/' ? 'daily' : 'weekly'}</changefreq>
+    <priority>${url === '/' ? '1.0' : '0.8'}</priority>
+  </url>`).join('\n')}
+</urlset>`;
+}
+
 app.use(globalLimiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(reviewPayloadGuard);
@@ -136,6 +168,7 @@ app.use(express.static(path.join(__dirname, 'public'), {
   maxAge: process.env.NODE_ENV === 'production' ? '7d' : 0,
   etag: true,
   lastModified: true,
+  index: false,
 }));
 
 // ── Store initialization (Blocking for ALL API Routes) ──
@@ -254,15 +287,20 @@ app.get('/api/farm', (req, res) => {
 
 const indexHtmlPath = path.join(__dirname, 'public', 'index.html');
 
+function renderHomePage() {
+  const baseHtml = fs.readFileSync(indexHtmlPath, 'utf8');
+  return baseHtml.replace('</head>', `${getVerificationMetaTags()}</head>`);
+}
+
 function renderProductPage(product) {
   const baseHtml = fs.readFileSync(indexHtmlPath, 'utf8');
   const approvedReviews = store.getProductReviews(product.id, { sort: 'newest' }).slice(0, 5);
-  const canonicalUrl = `https://www.green-valley-farm.online/products/${product.slug}`;
+  const canonicalUrl = `${SITE_URL}/products/${product.slug}`;
   const title = `${product.name} | Green Valley Poultry Farm`;
   const description = `${product.description || `Buy ${product.name} from Green Valley Poultry Farm.`}`.slice(0, 160);
   const image = product.imageUrl?.startsWith('http')
     ? product.imageUrl
-    : `https://www.green-valley-farm.online${product.imageUrl || '/images/logo.png'}`;
+    : `${SITE_URL}${product.imageUrl || '/images/logo.png'}`;
   const productSchema = {
     '@context': 'https://schema.org',
     '@type': 'Product',
@@ -303,8 +341,32 @@ function renderProductPage(product) {
     .replace(/<meta name="twitter:title" content="[^"]*">/, `<meta name="twitter:title" content="${escapeHtml(title)}">`)
     .replace(/<meta name="twitter:description" content="[^"]*">/, `<meta name="twitter:description" content="${escapeHtml(description)}">`)
     .replace(/<meta name="twitter:image" content="[^"]*">/, `<meta name="twitter:image" content="${image}">`)
-    .replace('</head>', `<script type="application/ld+json">${escapeJson(productSchema)}</script><script>window.__GVF_PRODUCT_SLUG=${escapeJson(product.slug)};</script></head>`);
+    .replace('</head>', `${getVerificationMetaTags()}<script type="application/ld+json">${escapeJson(productSchema)}</script><script>window.__GVF_PRODUCT_SLUG=${escapeJson(product.slug)};</script></head>`);
 }
+
+app.get('/robots.txt', (req, res) => {
+  res.type('text/plain').send([
+    'User-agent: *',
+    'Allow: /',
+    'Disallow: /admin',
+    'Disallow: /api/',
+    `Sitemap: ${SITE_URL}/sitemap.xml`
+  ].join('\n'));
+});
+
+app.get('/sitemap.xml', (req, res) => {
+  res.type('application/xml').send(buildSitemapXml());
+});
+
+app.get('/BingSiteAuth.xml', (req, res) => {
+  if (!BING_XML_VERIFICATION) return res.status(404).send('Not configured');
+  res.type('application/xml').send(BING_XML_VERIFICATION);
+});
+
+app.get(`/${INDEXNOW_KEY || '__indexnow_not_configured__'}.txt`, (req, res) => {
+  if (!INDEXNOW_KEY) return res.status(404).send('Not configured');
+  res.type('text/plain').send(INDEXNOW_KEY);
+});
 
 // SPA fallback
 app.get('/products/:slug', (req, res) => {
@@ -312,7 +374,7 @@ app.get('/products/:slug', (req, res) => {
   if (!product) return res.status(404).sendFile(indexHtmlPath);
   res.send(renderProductPage(product));
 });
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+app.get('/', (req, res) => res.send(renderHomePage()));
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 
 // Start local server only if NOT running on Vercel

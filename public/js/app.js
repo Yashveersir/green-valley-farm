@@ -10,6 +10,7 @@ const App = {
   selectedProductReviewMeta: null,
   productSort: 'featured',
   reviewFilters: { sort: 'newest', rating: '', withPhotos: false },
+  cookieConsentKey: 'gvf_cookie_notice_ack',
   searchTimeout: null,
   googleClientId: '',
   googleButtonsRendered: false,
@@ -22,6 +23,7 @@ const App = {
     await this.openProductFromLocation();
     await this.initGoogleAuth();
     this.updateCartBadge();
+    this.initCookieBanner();
   },
 
   // ── Auth ──
@@ -662,6 +664,23 @@ const App = {
     if (!input) return;
     navigator.clipboard.writeText(input.value);
     this.toast('Product link copied', 'success');
+  },
+
+  initCookieBanner() {
+    const banner = document.getElementById('cookie-banner');
+    if (!banner) return;
+    if (localStorage.getItem(this.cookieConsentKey) === 'accepted') return;
+    banner.hidden = false;
+  },
+
+  dismissCookieBanner() {
+    const banner = document.getElementById('cookie-banner');
+    if (banner) banner.hidden = true;
+  },
+
+  acceptCookieBanner() {
+    localStorage.setItem(this.cookieConsentKey, 'accepted');
+    this.dismissCookieBanner();
   },
 
   async deleteProductReview(productId = null) {

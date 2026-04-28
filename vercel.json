@@ -16,7 +16,31 @@
   ],
   "routes": [
     {
+      "src": "/",
+      "dest": "server.js"
+    },
+    {
       "src": "/api/(.*)",
+      "dest": "server.js"
+    },
+    {
+      "src": "/products/(.*)",
+      "dest": "server.js"
+    },
+    {
+      "src": "/robots.txt",
+      "dest": "server.js"
+    },
+    {
+      "src": "/sitemap.xml",
+      "dest": "server.js"
+    },
+    {
+      "src": "/BingSiteAuth.xml",
+      "dest": "server.js"
+    },
+    {
+      "src": "/[^/]+\\.txt",
       "dest": "server.js"
     },
     {
