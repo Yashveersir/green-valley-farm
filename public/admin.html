@@ -120,6 +120,7 @@
       <div class="nav-item active" data-tab="dashboard" onclick="AdminApp.navigate('dashboard')"><span>📊</span> Dashboard</div>
       <div class="nav-item" data-tab="products" onclick="AdminApp.navigate('products')"><span>📦</span> Products</div>
       <div class="nav-item" data-tab="orders" onclick="AdminApp.navigate('orders')"><span>📋</span> Orders</div>
+      <div class="nav-item" data-tab="reviews" onclick="AdminApp.navigate('reviews')"><span>⭐</span> Reviews</div>
     </div>
     <div class="sidebar-footer">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
@@ -159,6 +160,8 @@
         <div class="stat-card"><div class="stat-icon">📦</div><div class="stat-info"><h3>Total Orders</h3><div class="val" id="stat-orders">0</div></div></div>
         <div class="stat-card"><div class="stat-icon">📅</div><div class="stat-info"><h3>Today's Orders</h3><div class="val" id="stat-today">0</div></div></div>
         <div class="stat-card"><div class="stat-icon">👥</div><div class="stat-info"><h3>Customers</h3><div class="val" id="stat-customers">0</div></div></div>
+        <div class="stat-card" style="cursor:pointer;" onclick="AdminApp.navigate('reviews')"><div class="stat-icon">⭐</div><div class="stat-info"><h3>Pending Reviews</h3><div class="val" id="stat-pending-reviews">0</div><div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Open moderation queue</div></div></div>
+        <div class="stat-card"><div class="stat-icon">📝</div><div class="stat-info"><h3>Avg Review Rating</h3><div class="val" id="stat-review-rating">0</div></div></div>
       </div>
       
       <div class="table-card">
@@ -182,6 +185,18 @@
           <tbody id="low-stock-body"></tbody>
         </table>
       </div>
+
+      <div class="table-card">
+        <div class="table-header-bar">
+          <h3>Review Moderation</h3>
+          <button class="btn btn-outline btn-sm" onclick="AdminApp.navigate('reviews')">Open Pending Reviews</button>
+        </div>
+        <div style="padding:20px 24px;color:var(--text-secondary);display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;">
+          <span>New and updated customer reviews stay hidden until an admin approves them.</span>
+          <strong style="color:var(--accent);"><span id="dashboard-pending-reviews">0</span> pending</strong>
+        </div>
+        <div id="review-analytics-summary" style="padding:0 24px 20px;color:var(--text-muted);font-size:14px;"></div>
+      </div>
     </div>
 
     <!-- PRODUCTS -->
@@ -192,7 +207,7 @@
           <button class="btn btn-primary btn-sm" onclick="AdminApp.openProductModal()">+ Add Product</button>
         </div>
         <table>
-          <thead><tr><th>Item</th><th>Category</th><th>Price</th><th>Stock</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Item</th><th>Category</th><th>Price</th><th>Stock</th><th>Reviews</th><th>Rating</th><th>Actions</th></tr></thead>
           <tbody id="products-table-body"></tbody>
         </table>
       </div>
@@ -207,6 +222,43 @@
         <table>
           <thead><tr><th>Order ID</th><th>Customer</th><th>Date</th><th>Amount & Method</th><th>Verification</th><th>Status</th><th>Action</th></tr></thead>
           <tbody id="orders-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- REVIEWS -->
+    <div class="admin-content" id="tab-reviews">
+      <div class="table-card">
+        <div class="table-header-bar">
+          <h3>Pending Reviews</h3>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <input id="review-filter-search" placeholder="Search reviews..." style="padding:10px 12px;background:var(--bg-surface);border:1px solid var(--border-subtle);color:var(--text);border-radius:10px;">
+            <select id="review-filter-status" style="padding:10px 12px;background:var(--bg-surface);border:1px solid var(--border-subtle);color:var(--text);border-radius:10px;">
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+              <option value="all">All statuses</option>
+            </select>
+            <select id="review-filter-sort" style="padding:10px 12px;background:var(--bg-surface);border:1px solid var(--border-subtle);color:var(--text);border-radius:10px;">
+              <option value="newest">Newest</option>
+              <option value="oldest">Oldest</option>
+              <option value="highest">Highest rating</option>
+              <option value="lowest">Lowest rating</option>
+            </select>
+            <select id="review-filter-rating" style="padding:10px 12px;background:var(--bg-surface);border:1px solid var(--border-subtle);color:var(--text);border-radius:10px;">
+              <option value="">All ratings</option>
+              <option value="5">5 stars</option>
+              <option value="4">4 stars</option>
+              <option value="3">3 stars</option>
+              <option value="2">2 stars</option>
+              <option value="1">1 star</option>
+            </select>
+            <button class="btn btn-outline btn-sm" onclick="AdminApp.applyReviewFilters()">Apply</button>
+          </div>
+        </div>
+        <table>
+          <thead><tr><th>Product</th><th>Customer</th><th>Rating</th><th>Comment</th><th>Submitted</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="reviews-table-body"></tbody>
         </table>
       </div>
     </div>

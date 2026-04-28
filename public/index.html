@@ -3,15 +3,85 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Green Valley Poultry Farm — Fresh poultry delivered with care.">
-  <title>Green Valley Poultry Farm</title>
+  <meta name="description" content="Green Valley Poultry Farm — Order farm-fresh, free-range poultry products online. Premium chicken, eggs, and cuts delivered to your doorstep from our 25-acre organic farm in Bihar.">
+  <meta name="keywords" content="poultry farm, fresh chicken, organic eggs, free-range poultry, farm delivery, Green Valley, Bihar poultry, buy chicken online">
+  <meta name="author" content="Green Valley Poultry Farm">
+  <meta name="robots" content="index, follow">
+  <title>Green Valley Poultry Farm | Farm-Fresh Organic Poultry Delivered</title>
+
+  <!-- Canonical URL -->
+  <link rel="canonical" href="https://www.green-valley-farm.online/">
+
+  <!-- Open Graph (Facebook, WhatsApp, LinkedIn) -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://www.green-valley-farm.online/">
+  <meta property="og:title" content="Green Valley Poultry Farm | Farm-Fresh Organic Poultry">
+  <meta property="og:description" content="Order farm-fresh, free-range poultry products online. Premium chicken, eggs, and cuts delivered from our 25-acre organic farm.">
+  <meta property="og:image" content="https://www.green-valley-farm.online/images/logo.png">
+  <meta property="og:site_name" content="Green Valley Poultry Farm">
+  <meta property="og:locale" content="en_IN">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Green Valley Poultry Farm | Farm-Fresh Organic Poultry">
+  <meta name="twitter:description" content="Order farm-fresh, free-range poultry products online. Premium chicken, eggs, and cuts delivered from our 25-acre organic farm.">
+  <meta name="twitter:image" content="https://www.green-valley-farm.online/images/logo.png">
+
+  <!-- Preconnect for performance -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="icon" type="image/png" href="/images/logo.png">
+  <link rel="apple-touch-icon" href="/images/logo.png">
   <link rel="stylesheet" href="/css/styles.css">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+  <!-- Structured Data: LocalBusiness (JSON-LD) -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    "name": "Green Valley Poultry Farm",
+    "image": "https://www.green-valley-farm.online/images/logo.png",
+    "url": "https://www.green-valley-farm.online",
+    "telephone": "+919471800046",
+    "email": "sales.greenvalleyfarm@gmail.com",
+    "description": "Farm-fresh, free-range poultry products delivered to your doorstep. Premium chicken, eggs, and cuts from our 25-acre organic farm.",
+    "address": {
+      "@type": "PostalAddress",
+      "streetAddress": "Tengrahan, Minapur",
+      "addressLocality": "Muzaffarpur",
+      "addressRegion": "Bihar",
+      "postalCode": "843117",
+      "addressCountry": "IN"
+    },
+    "geo": {
+      "@type": "GeoCoordinates",
+      "latitude": 26.2929519,
+      "longitude": 85.3947712
+    },
+    "openingHoursSpecification": [
+      {
+        "@type": "OpeningHoursSpecification",
+        "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"],
+        "opens": "06:00",
+        "closes": "20:00"
+      },
+      {
+        "@type": "OpeningHoursSpecification",
+        "dayOfWeek": "Sunday",
+        "opens": "07:00",
+        "closes": "14:00"
+      }
+    ],
+    "foundingDate": "2018",
+    "priceRange": "₹₹",
+    "sameAs": [
+      "https://www.google.com/maps/place/Green+Valley+Poultry+Farm/@26.2929519,85.3947712,17z"
+    ]
+  }
+  </script>
 </head>
 <body>
   <header class="header" id="main-header">
@@ -72,6 +142,16 @@
       <div class="products-header" id="products-section">
         <h2 class="section-title">Our <span class="text-accent">Products</span></h2>
         <p class="section-desc">Handpicked poultry products from our farm</p>
+        <div style="display:flex;justify-content:flex-end;margin-bottom:14px;">
+          <select onchange="App.setProductSort(this.value)" style="padding:10px 12px;background:var(--bg-surface);border:1px solid var(--border-subtle);color:var(--text);border-radius:10px;">
+            <option value="featured">Featured</option>
+            <option value="rating">Top Rated</option>
+            <option value="reviews">Most Reviewed</option>
+            <option value="price-asc">Price: Low to High</option>
+            <option value="price-desc">Price: High to Low</option>
+            <option value="name">Name</option>
+          </select>
+        </div>
         <div class="category-filters" id="category-filters">
           <button class="cat-btn active" data-category="all" onclick="App.filterCategory('all')"><span class="cat-icon">🏠</span> All</button>
           <button class="cat-btn" data-category="live-birds" onclick="App.filterCategory('live-birds')"><span class="cat-icon">🐔</span> Live Birds</button>
@@ -134,7 +214,7 @@
     </section>
     <!-- ABOUT -->
     <section class="page page-about" id="page-about">
-      <div class="about-hero"><img src="/myImage/InShot_20260407_084823526.jpg.jpeg" alt="Green Valley Poultry Farm Exterior" class="about-img"><div class="about-overlay"></div><div class="about-hero-text"><h2>Our <span class="text-accent">Farm</span></h2><p>Where tradition meets quality</p></div></div>
+      <div class="about-hero"><img src="/myImage/InShot_20260407_084823526.jpg.jpeg" alt="Green Valley Poultry Farm Exterior" class="about-img" loading="lazy"><div class="about-overlay"></div><div class="about-hero-text"><h2>Our <span class="text-accent">Farm</span></h2><p>Where tradition meets quality</p></div></div>
       <div class="about-content" id="about-content"></div>
     </section>
   </main>
@@ -157,7 +237,7 @@
           </div>
         </div>
       </div>
-      <div class="footer-bottom"><p>© 2024 Green Valley Poultry Farm. 🌿 Organic & Free-Range since 2018</p></div>
+      <div class="footer-bottom"><p>© 2018–2026 Green Valley Poultry Farm. 🌿 Organic & Free-Range since 2018</p></div>
 
     </div>
   </footer>
@@ -291,6 +371,14 @@
           <div id="pd-price" style="font-size:22px;font-weight:800;color:var(--accent);"></div>
           <span id="pd-stock" class="stock-badge in-stock" style="padding:4px 12px;border-radius:var(--radius-full);font-size:11px;font-weight:600;text-transform:uppercase;"></span>
         </div>
+        <div style="display:flex;align-items:center;gap:8px;margin:-4px 0 14px;">
+          <span id="pd-rating-stars" style="color:#f5b301;font-size:16px;letter-spacing:1px;">☆☆☆☆☆</span>
+          <span id="pd-rating-text" style="font-size:13px;color:var(--text-muted);">No approved reviews yet</span>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap;">
+          <input id="pd-share-link" readonly style="flex:1;min-width:180px;padding:10px 12px;background:var(--bg-document);border:1px solid var(--border-subtle);color:var(--text);border-radius:10px;">
+          <button class="btn btn-outline btn-sm" type="button" onclick="App.copyProductShareLink()">Copy Link</button>
+        </div>
         <div id="price-hint-pd" style="font-size:14px; color:var(--primary); margin-top:-8px; margin-bottom:14px; font-weight:600; display:none;"></div>
         <p id="pd-desc" style="color:var(--text-secondary);font-size:14px;line-height:1.5;margin-bottom:16px;"></p>
         <div style="display:flex;justify-content:space-between;color:var(--text-muted);font-size:13px;background:var(--bg-document);padding:12px;border-radius:var(--radius);margin-bottom:20px;flex-wrap:wrap;gap:8px;">
@@ -304,6 +392,58 @@
             <button type="button" onclick="App.changeQty('pd',1)" style="width:40px;height:100%;border:none;background:transparent;color:var(--text);font-size:18px;cursor:pointer;font-weight:700;">+</button>
           </div>
           <button class="btn btn-primary btn-block" id="pd-add-btn" style="flex:1;padding:12px;font-size:15px;margin:0;" onclick="">🛒 Add to Cart</button>
+        </div>
+        <div style="margin-top:24px;">
+          <h3 style="margin-bottom:10px;font-size:18px;">Customer Reviews</h3>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+            <select onchange="App.setReviewSort(this.value)" style="padding:10px 12px;background:var(--bg-surface);border:1px solid var(--border-subtle);color:var(--text);border-radius:10px;">
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="highest">Highest rated</option>
+              <option value="lowest">Lowest rated</option>
+            </select>
+            <select onchange="App.setReviewRatingFilter(this.value)" style="padding:10px 12px;background:var(--bg-surface);border:1px solid var(--border-subtle);color:var(--text);border-radius:10px;">
+              <option value="">All ratings</option>
+              <option value="5">5 stars</option>
+              <option value="4">4 stars</option>
+              <option value="3">3 stars</option>
+              <option value="2">2 stars</option>
+              <option value="1">1 star</option>
+            </select>
+            <label style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:10px;font-size:13px;">
+              <input type="checkbox" onchange="App.toggleReviewPhotoFilter(this.checked)"> Photos only
+            </label>
+          </div>
+          <div id="pd-review-status" style="margin-bottom:8px;color:var(--accent);font-size:13px;font-weight:600;"></div>
+          <div id="pd-review-eligibility" style="margin-bottom:12px;color:var(--text-muted);font-size:13px;"></div>
+          <div id="pd-review-form-wrap" style="display:none;background:var(--bg-document);border:1px solid var(--border-subtle);border-radius:var(--radius);padding:14px;margin-bottom:14px;">
+            <form id="pd-review-form" onsubmit="App.submitProductReview(event)">
+              <div class="form-group" style="margin-bottom:12px;">
+                <label for="pd-review-rating">Your Rating</label>
+                <select id="pd-review-rating" required style="width:100%;padding:12px;background:var(--bg-surface);border:1px solid var(--border-subtle);color:var(--text);border-radius:var(--radius);outline:none;">
+                  <option value="5">5 Stars - Excellent</option>
+                  <option value="4">4 Stars - Very Good</option>
+                  <option value="3">3 Stars - Good</option>
+                  <option value="2">2 Stars - Fair</option>
+                  <option value="1">1 Star - Poor</option>
+                </select>
+              </div>
+              <div class="form-group" style="margin-bottom:12px;">
+                <label for="pd-review-comment">Your Review</label>
+                <textarea id="pd-review-comment" rows="3" minlength="10" maxlength="500" placeholder="Tell other customers about freshness, quality, packing, or delivery experience." required></textarea>
+              </div>
+              <div class="form-group" style="margin-bottom:12px;">
+                <label for="pd-review-photos">Review Photos <small style="color:var(--text-muted);font-weight:normal;">(up to 3)</small></label>
+                <input type="file" id="pd-review-photos" accept="image/*" multiple onchange="App.handleReviewPhotoSelection(event)">
+                <div id="pd-review-photo-preview" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;"></div>
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button type="submit" class="btn btn-primary btn-sm" id="pd-review-submit">Submit Review</button>
+                <button type="button" class="btn btn-outline btn-sm" id="pd-review-delete" style="display:none;" onclick="App.deleteProductReview()">Delete Review</button>
+              </div>
+            </form>
+          </div>
+          <div id="pd-reviews-list"></div>
         </div>
       </div>
     </div>

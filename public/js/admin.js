@@ -6,6 +6,9 @@ const AdminApp = {
   currentTab: 'dashboard',
   products: [],
   orders: [],
+  reviews: [],
+  reviewAnalytics: null,
+  reviewFilters: { status: 'pending', sort: 'newest', rating: '', search: '' },
   notifications: [],
   notifsInterval: null,
 
@@ -146,28 +149,39 @@ const AdminApp = {
     document.getElementById(`tab-${tab}`).classList.add('active');
     document.querySelector(`.nav-item[data-tab="${tab}"]`).classList.add('active');
     
-    const titles = { dashboard: 'Dashboard', products: 'Product Catalog', orders: 'Order Management' };
+    const titles = { dashboard: 'Dashboard', products: 'Product Catalog', orders: 'Order Management', reviews: 'Review Moderation' };
     document.getElementById('page-title').textContent = titles[tab];
     this.currentTab = tab;
     
     if (tab === 'products') this.renderProducts();
     if (tab === 'orders') this.renderOrders();
+    if (tab === 'reviews') this.renderReviews();
   },
 
   // ── Data Loading & Dashboard ──
   async loadInitialData() {
     try {
-      const { stats } = await API.request('/admin/dashboard');
+      const { stats, reviewAnalytics } = await API.request('/admin/dashboard');
+      this.reviewAnalytics = reviewAnalytics;
       document.getElementById('stat-revenue').textContent = `₹${stats.totalRevenue.toLocaleString()}`;
       document.getElementById('stat-orders').textContent = stats.totalOrders;
       document.getElementById('stat-today').textContent = stats.todayOrders;
       document.getElementById('stat-customers').textContent = stats.totalCustomers;
+      document.getElementById('stat-pending-reviews').textContent = stats.pendingReviews || 0;
+      const avgRating = document.getElementById('stat-review-rating');
+      if (avgRating) avgRating.textContent = stats.avgReviewRating || 0;
+      const dashboardPending = document.getElementById('dashboard-pending-reviews');
+      if (dashboardPending) dashboardPending.textContent = stats.pendingReviews || 0;
       
       const pRes = await API.getProducts();
       this.products = pRes.products;
       
       const oRes = await API.request('/admin/orders');
       this.orders = oRes.orders.sort((a,b) => new Date(b.placedAt) - new Date(a.placedAt));
+
+      const reviewRes = await API.getPendingReviews(this.reviewFilters);
+      this.reviews = reviewRes.reviews;
+      this.reviewAnalytics = reviewRes.analytics || reviewAnalytics;
       
       this.renderDashboard();
       this.loadNotifications();
@@ -209,6 +223,16 @@ const AdminApp = {
     `).join('');
     
     if (!low.length) document.getElementById('low-stock-body').innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-muted)">Stock levels are good</td></tr>';
+
+    const analyticsEl = document.getElementById('review-analytics-summary');
+    if (analyticsEl && this.reviewAnalytics) {
+      analyticsEl.innerHTML = `
+        <strong>${this.reviewAnalytics.totals.total}</strong> reviews total,
+        <strong>${this.reviewAnalytics.byStatus.pending || 0}</strong> pending,
+        <strong>${this.reviewAnalytics.byStatus.rejected || 0}</strong> rejected,
+        <strong>${this.reviewAnalytics.totals.withPhotos || 0}</strong> with photos.
+      `;
+    }
   },
 
   // ── Products ──
@@ -220,6 +244,8 @@ const AdminApp = {
         <td style="text-transform:capitalize">${p.category.replace('-',' ')}</td>
         <td>₹${p.price} <small style="color:var(--text-muted)">/${p.unit}</small></td>
         <td><span style="color:${p.stock<=10?'var(--accent)':'var(--text)'}">${p.stock}</span></td>
+        <td>${p.reviewCount || 0}</td>
+        <td>${p.reviewCount ? `${p.averageRating || 0} ★` : '—'}</td>
         <td>
           <button class="action-btn edit" onclick="AdminApp.editProduct('${p.id}')" title="Edit">✎</button>
           <button class="action-btn delete" onclick="AdminApp.deleteProduct('${p.id}')" title="Delete">✕</button>
@@ -364,6 +390,69 @@ const AdminApp = {
       await this.loadInitialData();
       if (this.currentTab === 'orders') this.renderOrders();
     } catch (err) { this.toast(err.message, 'error'); }
+  },
+
+  // ── Reviews ──
+  renderStars(rating) {
+    return Array.from({ length: 5 }, (_, index) => index < Number(rating || 0) ? '★' : '☆').join('');
+  },
+
+  renderReviews() {
+    const tbody = document.getElementById('reviews-table-body');
+    if (!tbody) return;
+    if (!this.reviews.length) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted)">No reviews match these filters</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = this.reviews.map(review => `
+      <tr>
+        <td><strong>${review.productName}</strong><br><small style="color:var(--text-muted)">${review.productId}</small></td>
+        <td>${review.userName}${review.updatedAt ? `<br><small style="color:var(--accent);font-weight:600;">Edited submission</small>` : ''}<br><small style="color:var(--text-muted)">${review.orderId || 'No order ref'}</small></td>
+        <td style="color:#f5b301;font-size:14px;">${this.renderStars(review.rating)}</td>
+        <td style="max-width:320px;white-space:normal;color:var(--text-secondary);">${review.comment}${review.rejectionNote ? `<div style="margin-top:8px;color:#fda4af;font-size:12px;"><strong>Rejection note:</strong> ${review.rejectionNote}</div>` : ''}${(review.photos || []).length ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">${review.photos.map(photo => `<a href="${photo.url}" target="_blank" rel="noreferrer"><img src="${photo.url}" alt="Review photo" style="width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid var(--border-subtle);"></a>`).join('')}</div>` : ''}</td>
+        <td>${new Date(review.createdAt).toLocaleString('en-IN', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' })}${review.updatedAt ? `<br><small style="color:var(--text-muted)">Updated ${new Date(review.updatedAt).toLocaleString('en-IN', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' })}</small>` : ''}</td>
+        <td><span class="order-status" style="border:1px solid rgba(255,255,255,0.12);padding:4px 10px;border-radius:12px;font-size:12px;text-transform:capitalize;">${review.status}</span></td>
+        <td style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-primary btn-sm" onclick="AdminApp.moderateReview('${review.id}', 'approved')">Approve</button>
+          <button class="btn btn-outline btn-sm" onclick="AdminApp.moderateReview('${review.id}', 'rejected')">Reject</button>
+        </td>
+      </tr>
+    `).join('');
+  },
+
+  async loadPendingReviews() {
+    try {
+      const res = await API.getPendingReviews(this.reviewFilters);
+      this.reviews = res.reviews;
+      this.reviewAnalytics = res.analytics || this.reviewAnalytics;
+      if (this.currentTab === 'reviews') this.renderReviews();
+    } catch (err) {
+      this.toast(err.message || 'Failed to load reviews', 'error');
+    }
+  },
+
+  async applyReviewFilters() {
+    this.reviewFilters.status = document.getElementById('review-filter-status')?.value || 'pending';
+    this.reviewFilters.sort = document.getElementById('review-filter-sort')?.value || 'newest';
+    this.reviewFilters.rating = document.getElementById('review-filter-rating')?.value || '';
+    this.reviewFilters.search = document.getElementById('review-filter-search')?.value || '';
+    await this.loadPendingReviews();
+  },
+
+  async moderateReview(reviewId, status) {
+    try {
+      let rejectionNote = '';
+      if (status === 'rejected') {
+        rejectionNote = prompt('Add a rejection note for the customer:', 'Please remove abusive language and resubmit with clearer product details.') || '';
+      }
+      await API.moderateReview(reviewId, status, rejectionNote);
+      this.toast(`Review ${status === 'approved' ? 'approved' : 'rejected'}`);
+      await this.loadInitialData();
+      if (this.currentTab === 'reviews') this.renderReviews();
+    } catch (err) {
+      this.toast(err.message || 'Failed to update review', 'error');
+    }
   },
 
   // ── Notifications ──

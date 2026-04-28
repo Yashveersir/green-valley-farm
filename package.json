@@ -8,9 +8,12 @@
     "dev": "node server.js"
   },
   "dependencies": {
+    "compression": "^1.8.1",
     "cors": "^2.8.5",
     "dotenv": "^17.4.1",
     "express": "^4.21.0",
+    "express-rate-limit": "^8.4.1",
+    "helmet": "^8.1.0",
     "mongoose": "^9.4.1",
     "nodemailer": "^8.0.4",
     "razorpay": "^2.9.6",

@@ -1,7 +1,12 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const fs = require('fs');
 const path = require('path');
+const helmet = require('helmet');
+const compression = require('compression');
+const rateLimit = require('express-rate-limit');
+const { ipKeyGenerator } = require('express-rate-limit');
 const store = require('./models/store');
 const db = require('./models/db');
 
@@ -15,9 +20,123 @@ const paymentsRouter = require('./routes/payments');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
+// ── Security Headers (Helmet) ──
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://accounts.google.com", "https://checkout.razorpay.com", "https://www.googletagmanager.com", "https://www.google-analytics.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://accounts.google.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:", "blob:", "https:", "http:"],
+      connectSrc: ["'self'", "https://accounts.google.com", "https://api.razorpay.com", "https://lux-gateway.razorpay.com", "https://www.google-analytics.com"],
+      frameSrc: ["'self'", "https://accounts.google.com", "https://api.razorpay.com"],
+      objectSrc: ["'none'"],
+      upgradeInsecureRequests: [],
+    },
+  },
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+}));
+
+// ── Gzip/Brotli Compression ──
+app.use(compression());
+
+// ── CORS — restrict to your domain in production ──
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',')
+  : ['https://www.green-valley-farm.online', 'https://green-valley-farm.online'];
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production'
+    ? (origin, cb) => {
+        if (!origin || allowedOrigins.includes(origin)) cb(null, true);
+        else cb(new Error('CORS not allowed'));
+      }
+    : true,
+  credentials: true,
+}));
+
+// ── Rate Limiting — auth endpoints ──
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20,                   // 20 requests per window
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Too many requests. Please try again in 15 minutes.' },
+});
+
+// ── Rate Limiting — payment endpoints ──
+const paymentLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Too many payment requests. Please try again later.' },
+});
+
+// ── Global rate limit (generous) ──
+const globalLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000,  // 1 minute
+  max: 200,                  // 200 req/min per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const reviewLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 12,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Too many review requests. Please slow down and try again shortly.' },
+  keyGenerator: (req) => `${ipKeyGenerator(req.ip)}:${req.userId || 'guest'}:${req.params.id || 'review'}`
+});
+
+function reviewPayloadGuard(req, res, next) {
+  if (!['POST', 'PUT'].includes(req.method) || !/^\/api\/products\/[^/]+\/reviews$/.test(req.path)) {
+    return next();
+  }
+
+  const photos = Array.isArray(req.body?.photos) ? req.body.photos : [];
+  if (photos.length > 3) {
+    return res.status(413).json({ success: false, error: 'A maximum of 3 review photos is allowed.' });
+  }
+
+  const serialized = JSON.stringify(req.body || {});
+  if (serialized.length > 900000) {
+    return res.status(413).json({ success: false, error: 'Review payload is too large.' });
+  }
+
+  const oversizedPhoto = photos.find(photo => String(photo || '').length > 450000);
+  if (oversizedPhoto) {
+    return res.status(413).json({ success: false, error: 'Each review photo must stay under the allowed upload size.' });
+  }
+
+  next();
+}
+
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function escapeJson(value) {
+  return JSON.stringify(value).replace(/</g, '\\u003c');
+}
+
+app.use(globalLimiter);
 app.use(express.json({ limit: '10mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(reviewPayloadGuard);
+
+// ── Static files with caching headers ──
+app.use(express.static(path.join(__dirname, 'public'), {
+  maxAge: process.env.NODE_ENV === 'production' ? '7d' : 0,
+  etag: true,
+  lastModified: true,
+}));
 
 // ── Store initialization (Blocking for ALL API Routes) ──
 // CRITICAL: This must run before authMiddleware so customer users are loaded from DB
@@ -52,13 +171,24 @@ function adminOnly(req, res, next) {
 // Apply ensureInit THEN authMiddleware to ALL /api routes (order matters!)
 app.use('/api', ensureInit, authMiddleware);
 
-// Routes
-app.use('/api/auth', authRouter);
+// Routes (with rate limiters on sensitive endpoints)
+app.use('/api/auth', authLimiter, authRouter);
+app.use('/api/products/:id/reviews', reviewLimiter);
 app.use('/api/products', productsRouter);
 app.use('/api/cart', cartRouter);
 app.use('/api/orders', ordersRouter);
-app.use('/api/payments', paymentsRouter);
+app.use('/api/payments', paymentLimiter, paymentsRouter);
 app.use('/api/admin', adminOnly, adminRouter);
+
+// ── Health Check (for uptime monitoring) ──
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    uptime: Math.floor(process.uptime()),
+    timestamp: new Date().toISOString(),
+    memory: Math.round(process.memoryUsage().rss / 1024 / 1024) + 'MB',
+  });
+});
 
 // Protect admin product mutations
 app.use('/api/products', (req, res, next) => {
@@ -122,7 +252,66 @@ app.get('/api/farm', (req, res) => {
   });
 });
 
+const indexHtmlPath = path.join(__dirname, 'public', 'index.html');
+
+function renderProductPage(product) {
+  const baseHtml = fs.readFileSync(indexHtmlPath, 'utf8');
+  const approvedReviews = store.getProductReviews(product.id, { sort: 'newest' }).slice(0, 5);
+  const canonicalUrl = `https://www.green-valley-farm.online/products/${product.slug}`;
+  const title = `${product.name} | Green Valley Poultry Farm`;
+  const description = `${product.description || `Buy ${product.name} from Green Valley Poultry Farm.`}`.slice(0, 160);
+  const image = product.imageUrl?.startsWith('http')
+    ? product.imageUrl
+    : `https://www.green-valley-farm.online${product.imageUrl || '/images/logo.png'}`;
+  const productSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: product.name,
+    description,
+    image: [image],
+    sku: product.id,
+    brand: { '@type': 'Brand', name: 'Green Valley Poultry Farm' },
+    offers: {
+      '@type': 'Offer',
+      priceCurrency: 'INR',
+      price: product.price,
+      availability: product.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+      url: canonicalUrl
+    },
+    aggregateRating: product.reviewCount ? {
+      '@type': 'AggregateRating',
+      ratingValue: product.averageRating,
+      reviewCount: product.reviewCount
+    } : undefined,
+    review: approvedReviews.map(review => ({
+      '@type': 'Review',
+      author: { '@type': 'Person', name: review.userName },
+      reviewRating: { '@type': 'Rating', ratingValue: review.rating, bestRating: 5 },
+      reviewBody: review.comment,
+      datePublished: review.createdAt
+    }))
+  };
+
+  return baseHtml
+    .replace(/<title>[\s\S]*?<\/title>/, `<title>${escapeHtml(title)}</title>`)
+    .replace(/<meta name="description" content="[^"]*">/, `<meta name="description" content="${escapeHtml(description)}">`)
+    .replace(/<link rel="canonical" href="[^"]*">/, `<link rel="canonical" href="${canonicalUrl}">`)
+    .replace(/<meta property="og:url" content="[^"]*">/, `<meta property="og:url" content="${canonicalUrl}">`)
+    .replace(/<meta property="og:title" content="[^"]*">/, `<meta property="og:title" content="${escapeHtml(title)}">`)
+    .replace(/<meta property="og:description" content="[^"]*">/, `<meta property="og:description" content="${escapeHtml(description)}">`)
+    .replace(/<meta property="og:image" content="[^"]*">/, `<meta property="og:image" content="${image}">`)
+    .replace(/<meta name="twitter:title" content="[^"]*">/, `<meta name="twitter:title" content="${escapeHtml(title)}">`)
+    .replace(/<meta name="twitter:description" content="[^"]*">/, `<meta name="twitter:description" content="${escapeHtml(description)}">`)
+    .replace(/<meta name="twitter:image" content="[^"]*">/, `<meta name="twitter:image" content="${image}">`)
+    .replace('</head>', `<script type="application/ld+json">${escapeJson(productSchema)}</script><script>window.__GVF_PRODUCT_SLUG=${escapeJson(product.slug)};</script></head>`);
+}
+
 // SPA fallback
+app.get('/products/:slug', (req, res) => {
+  const product = store.getProductBySlug(req.params.slug);
+  if (!product) return res.status(404).sendFile(indexHtmlPath);
+  res.send(renderProductPage(product));
+});
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 

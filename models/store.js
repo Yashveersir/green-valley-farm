@@ -50,6 +50,7 @@ let products = require('../data/products.json');
 let carts = {};       // userId -> cart items[]
 let orders = [];
 let notifications = [];
+let reviews = [];
 let users = [
   {
     id: 'admin-001',
@@ -75,6 +76,139 @@ let tokens = {}; // token -> userId
 const ORDER_STATUSES = ['confirmed', 'processing', 'dispatched', 'delivered', 'cancelled'];
 const CUSTOMER_CANCELLABLE_STATUSES = ['confirmed', 'processing'];
 const ORDER_CANCEL_WINDOW_MS = 2 * 60 * 60 * 1000;
+const REVIEW_STATUSES = ['pending', 'approved', 'rejected'];
+const REVIEW_SORTERS = {
+  newest: (a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt),
+  oldest: (a, b) => new Date(a.updatedAt || a.createdAt) - new Date(b.updatedAt || b.createdAt),
+  highest: (a, b) => b.rating - a.rating || new Date(b.createdAt) - new Date(a.createdAt),
+  lowest: (a, b) => a.rating - b.rating || new Date(b.createdAt) - new Date(a.createdAt)
+};
+const MAX_REVIEW_PHOTOS = 3;
+const MAX_REVIEW_PHOTO_DATA_URL_LENGTH = 450000;
+
+function sanitizeText(value, maxLength = 500) {
+  return String(value || '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, maxLength);
+}
+
+function sanitizeTags(tags) {
+  if (!Array.isArray(tags)) return [];
+  return [...new Set(
+    tags
+      .map(tag => sanitizeText(tag, 30).toLowerCase())
+      .filter(Boolean)
+  )];
+}
+
+function slugify(value) {
+  const base = sanitizeText(value, 120)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return base || `product-${uuidv4().slice(0, 6)}`;
+}
+
+function buildUniqueProductSlug(name, currentId = null) {
+  const base = slugify(name);
+  let candidate = base;
+  let suffix = 2;
+  while (products.some(product => product.slug === candidate && product.id !== currentId)) {
+    candidate = `${base}-${suffix++}`;
+  }
+  return candidate;
+}
+
+function sanitizePhotoUrl(photo, index = 0) {
+  const value = String(typeof photo === 'object' && photo !== null ? (photo.url || '') : (photo || '')).trim();
+  if (!value) return null;
+  const isAllowed = value.startsWith('data:image/') || /^https?:\/\//i.test(value) || value.startsWith('/');
+  if (!isAllowed) return null;
+  return {
+    id: typeof photo === 'object' && photo !== null && photo.id ? photo.id : `photo-${Date.now().toString(36)}-${index}`,
+    url: value.slice(0, MAX_REVIEW_PHOTO_DATA_URL_LENGTH)
+  };
+}
+
+function sanitizeReviewPhotos(photos) {
+  if (!Array.isArray(photos)) return [];
+  return photos
+    .slice(0, MAX_REVIEW_PHOTOS)
+    .map((photo, index) => sanitizePhotoUrl(photo, index))
+    .filter(Boolean);
+}
+
+function normalizeProduct(product) {
+  if (!product) return null;
+  const normalized = {
+    ...product,
+    name: sanitizeText(product.name, 120),
+    category: sanitizeText(product.category || 'live-birds', 40) || 'live-birds',
+    description: sanitizeText(product.description, 1200),
+    price: Number(product.price) || 0,
+    unit: sanitizeText(product.unit || 'per unit', 40) || 'per unit',
+    stock: Math.max(0, Number(product.stock) || 0),
+    weight: sanitizeText(product.weight || 'N/A', 40) || 'N/A',
+    emoji: sanitizeText(product.emoji || '🐔', 10) || '🐔',
+    tags: sanitizeTags(product.tags || []),
+    farmOrigin: sanitizeText(product.farmOrigin || 'Green Valley Farm', 120) || 'Green Valley Farm',
+    imageUrl: sanitizeText(product.imageUrl || '', 500),
+    slug: sanitizeText(product.slug || '', 160)
+  };
+
+  normalized.slug = normalized.slug || buildUniqueProductSlug(normalized.name, normalized.id);
+  return normalized;
+}
+
+function normalizeReview(review) {
+  return {
+    ...review,
+    rating: Math.max(1, Math.min(5, Number(review.rating) || 0)),
+    comment: sanitizeText(review.comment, 500),
+    status: REVIEW_STATUSES.includes(review.status) ? review.status : 'pending',
+    rejectionNote: sanitizeText(review.rejectionNote, 280),
+    photos: sanitizeReviewPhotos(review.photos || []),
+    updatedAt: review.updatedAt || null,
+    approvedAt: review.approvedAt || null,
+    approvedBy: review.approvedBy || null,
+    moderatedAt: review.moderatedAt || null,
+    moderatedBy: review.moderatedBy || null
+  };
+}
+
+function summarizeReviews(productId) {
+  const approved = reviews.filter(r => r.productId === productId && r.status === 'approved');
+  const reviewCount = approved.length;
+  const averageRating = reviewCount
+    ? Number((approved.reduce((sum, review) => sum + review.rating, 0) / reviewCount).toFixed(1))
+    : 0;
+  const ratingBreakdown = approved.reduce((acc, review) => {
+    acc[review.rating] = (acc[review.rating] || 0) + 1;
+    return acc;
+  }, { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 });
+  return {
+    averageRating,
+    reviewCount,
+    ratingBreakdown,
+    photoReviewCount: approved.filter(review => (review.photos || []).length > 0).length
+  };
+}
+
+function enrichProduct(product) {
+  if (!product) return null;
+  return { ...product, ...summarizeReviews(product.id) };
+}
+
+function enrichReview(review) {
+  const product = products.find(entry => entry.id === review.productId);
+  return {
+    ...review,
+    productName: product?.name || 'Unknown product',
+    productSlug: product?.slug || null
+  };
+}
 
 function restoreOrderStock(order) {
   if (!order || order.stockRestored) return;
@@ -107,7 +241,7 @@ const store = {
       const connected = await db.connectDB();
       if (connected) {
         console.log('[Store] MongoDB connected, loading data...');
-        await db.bootstrapCollections(['users', 'orders', 'carts', 'notifications', 'products', 'pendingOtps']);
+        await db.bootstrapCollections(['users', 'orders', 'carts', 'notifications', 'products', 'pendingOtps', 'reviews']);
 
         const savedUsers = await db.loadData('users');
         if (savedUsers && savedUsers.length > 0) {
@@ -158,11 +292,15 @@ const store = {
 
         const savedNotifs = await db.loadData('notifications');
         if (savedNotifs) notifications = savedNotifs;
+
+        const savedReviews = await db.loadData('reviews');
+        if (savedReviews) reviews = savedReviews.map(normalizeReview);
         
         const savedProducts = await db.loadData('products');
         if (savedProducts && savedProducts.length > 0) {
-          products = savedProducts;
+          products = savedProducts.map(normalizeProduct);
         } else {
+          products = products.map(normalizeProduct);
           await db.saveData('products', products);
         }
         console.log('[Store] All data loaded from MongoDB ✅');
@@ -411,26 +549,47 @@ const store = {
   },
 
   // ══════ PRODUCTS ══════
-  getAllProducts(category = null) {
-    if (category && category !== 'all') return products.filter(p => p.category === category);
-    return products;
+  getAllProducts(category = null, options = {}) {
+    const search = sanitizeText(options.search || '', 120).toLowerCase();
+    const sort = sanitizeText(options.sort || 'featured', 20);
+    const minRating = Math.max(0, Number(options.minRating) || 0);
+    let filtered = category && category !== 'all'
+      ? products.filter(p => p.category === category)
+      : [...products];
+
+    if (search) {
+      filtered = filtered.filter(p =>
+        p.name.toLowerCase().includes(search) ||
+        p.description.toLowerCase().includes(search) ||
+        (p.tags || []).some(tag => tag.toLowerCase().includes(search))
+      );
+    }
+
+    filtered = filtered.map(enrichProduct).filter(product => (product.averageRating || 0) >= minRating);
+
+    if (sort === 'price-asc') filtered.sort((a, b) => a.price - b.price);
+    else if (sort === 'price-desc') filtered.sort((a, b) => b.price - a.price);
+    else if (sort === 'rating') filtered.sort((a, b) => (b.averageRating - a.averageRating) || (b.reviewCount - a.reviewCount));
+    else if (sort === 'reviews') filtered.sort((a, b) => (b.reviewCount - a.reviewCount) || (b.averageRating - a.averageRating));
+    else if (sort === 'name') filtered.sort((a, b) => a.name.localeCompare(b.name));
+
+    return filtered;
   },
 
   getProductById(id) {
-    return products.find(p => p.id === id) || null;
+    return enrichProduct(products.find(p => p.id === id) || null);
+  },
+
+  getProductBySlug(slug) {
+    return enrichProduct(products.find(product => product.slug === sanitizeText(slug, 160)) || null);
   },
 
   searchProducts(query) {
-    const q = query.toLowerCase();
-    return products.filter(p =>
-      p.name.toLowerCase().includes(q) ||
-      p.description.toLowerCase().includes(q) ||
-      p.tags.some(t => t.toLowerCase().includes(q))
-    );
+    return this.getAllProducts(null, { search: query });
   },
 
   async addProduct(data) {
-    const product = {
+    const product = normalizeProduct({
       id: `prod-${uuidv4().slice(0, 6)}`,
       name: data.name,
       category: data.category || 'live-birds',
@@ -441,18 +600,25 @@ const store = {
       weight: data.weight || 'N/A',
       emoji: data.emoji || '🐔',
       tags: data.tags || [],
-      farmOrigin: data.farmOrigin || 'Green Valley Farm'
-    };
+      farmOrigin: data.farmOrigin || 'Green Valley Farm',
+      imageUrl: data.imageUrl || '',
+      slug: data.slug || buildUniqueProductSlug(data.name)
+    });
     products.push(product);
     await db.saveData('products', products);
-    return product;
+    return enrichProduct(product);
   },
 
   async updateProduct(id, data) {
     const p = products.find(p => p.id === id);
     if (!p) return { error: 'Product not found' };
     const originalName = p.name;
-    Object.assign(p, data);
+    const nextProduct = normalizeProduct({
+      ...p,
+      ...data,
+      slug: data.slug || (data.name && data.name !== p.name ? buildUniqueProductSlug(data.name, id) : p.slug)
+    });
+    Object.assign(p, nextProduct);
     await db.saveData('products', products);
 
     this.addNotification({ 
@@ -460,7 +626,7 @@ const store = {
       message: `Admin updated product details for ${originalName}`,
       type: 'system' 
     });
-    return p;
+    return enrichProduct(p);
   },
 
   async deleteProduct(id) {
@@ -469,6 +635,263 @@ const store = {
     products.splice(idx, 1);
     await db.saveData('products', products);
     return { success: true };
+  },
+
+  // ══════ REVIEWS ══════
+  getProductReviews(productId, options = {}) {
+    const sort = sanitizeText(options.sort || 'newest', 20);
+    const rating = Number(options.rating) || 0;
+    const withPhotos = String(options.withPhotos || '') === 'true';
+    let filtered = reviews.filter(review => review.productId === productId && review.status === 'approved');
+    if (rating >= 1 && rating <= 5) filtered = filtered.filter(review => review.rating === rating);
+    if (withPhotos) filtered = filtered.filter(review => (review.photos || []).length > 0);
+    filtered.sort(REVIEW_SORTERS[sort] || REVIEW_SORTERS.newest);
+    return filtered.map(enrichReview);
+  },
+
+  getProductReviewSummary(productId) {
+    return summarizeReviews(productId);
+  },
+
+  getReviewEligibility(productId, userId) {
+    const product = products.find(p => p.id === productId);
+    if (!product) return { error: 'Product not found' };
+    if (!userId) {
+      return {
+        eligible: false,
+        reason: 'Login required to review this product',
+        hasDeliveredPurchase: false,
+        existingReview: null
+      };
+    }
+
+    const deliveredOrders = orders
+      .filter(order => order.userId === userId && order.status === 'delivered')
+      .sort((a, b) => new Date(b.placedAt) - new Date(a.placedAt));
+
+    const matchedOrder = deliveredOrders.find(order =>
+      (order.items || []).some(item => item.productId === productId)
+    );
+
+    const existingReview = reviews.find(review => review.productId === productId && review.userId === userId) || null;
+
+    if (existingReview) {
+      const statusReason = existingReview.status === 'approved'
+        ? 'You have already reviewed this product'
+        : existingReview.status === 'pending'
+          ? 'Your review is pending admin approval'
+          : 'Your previous review was rejected';
+      return {
+        eligible: false,
+        reason: statusReason,
+        hasDeliveredPurchase: Boolean(matchedOrder),
+        orderId: matchedOrder?.orderId || existingReview.orderId || null,
+        existingReview
+      };
+    }
+
+    if (!matchedOrder) {
+      return {
+        eligible: false,
+        reason: 'Only customers with a delivered order can review this product',
+        hasDeliveredPurchase: false,
+        existingReview: null
+      };
+    }
+
+    return {
+      eligible: true,
+      reason: '',
+      hasDeliveredPurchase: true,
+      orderId: matchedOrder.orderId,
+      existingReview: null
+    };
+  },
+
+  getUserReview(productId, userId) {
+    return reviews.find(review => review.productId === productId && review.userId === userId) || null;
+  },
+
+  validateReviewPayload(data) {
+    const rating = Number(data.rating);
+    const comment = sanitizeText(data.comment, 500);
+    const photos = sanitizeReviewPhotos(data.photos || []);
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+      return { error: 'Rating must be a whole number between 1 and 5' };
+    }
+    if (comment.length < 10) return { error: 'Review comment must be at least 10 characters' };
+    if (comment.length > 500) return { error: 'Review comment must be 500 characters or less' };
+    return { rating, comment, photos };
+  },
+
+  async addReview(userId, productId, data) {
+    const user = users.find(entry => entry.id === userId);
+    if (!user) return { error: 'User not found' };
+
+    const product = products.find(entry => entry.id === productId);
+    if (!product) return { error: 'Product not found' };
+
+    const eligibility = this.getReviewEligibility(productId, userId);
+    if (eligibility.error) return { error: eligibility.error };
+    if (!eligibility.eligible) return { error: eligibility.reason || 'You are not allowed to review this product' };
+
+    const validated = this.validateReviewPayload(data);
+    if (validated.error) return { error: validated.error };
+
+    const review = normalizeReview({
+      id: `review-${uuidv4().slice(0, 8)}`,
+      productId,
+      userId,
+      userName: user.name || 'Customer',
+      orderId: eligibility.orderId,
+      rating: validated.rating,
+      comment: validated.comment,
+      photos: validated.photos,
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+      approvedAt: null,
+      approvedBy: null,
+      rejectionNote: ''
+    });
+
+    reviews.unshift(review);
+    await db.saveData('reviews', reviews);
+
+    this.addNotification({
+      type: 'review-pending',
+      title: 'Review Awaiting Approval',
+      message: `${review.userName} submitted a ${review.rating}-star review for ${product.name}`,
+      data: { reviewId: review.id, productId, productName: product.name }
+    });
+
+    return { review: enrichReview(review), summary: this.getProductReviewSummary(productId) };
+  },
+
+  async updateReview(userId, productId, data) {
+    const review = reviews.find(entry => entry.productId === productId && entry.userId === userId);
+    if (!review) return { error: 'Review not found' };
+
+    const validated = this.validateReviewPayload(data);
+    if (validated.error) return { error: validated.error };
+
+    review.rating = validated.rating;
+    review.comment = validated.comment;
+    review.photos = validated.photos;
+    review.updatedAt = new Date().toISOString();
+    review.status = 'pending';
+    review.approvedAt = null;
+    review.approvedBy = null;
+    review.rejectionNote = '';
+    review.moderatedAt = null;
+    review.moderatedBy = null;
+    await db.saveData('reviews', reviews);
+
+    const product = products.find(entry => entry.id === productId);
+    this.addNotification({
+      type: 'review-pending',
+      title: 'Updated Review Awaiting Approval',
+      message: `${review.userName} updated a review for ${product?.name || 'a product'}`,
+      data: { reviewId: review.id, productId, productName: product?.name || 'Unknown product' }
+    });
+
+    return { review: enrichReview(review), summary: this.getProductReviewSummary(productId) };
+  },
+
+  async deleteReview(userId, productId) {
+    const reviewIndex = reviews.findIndex(entry => entry.productId === productId && entry.userId === userId);
+    if (reviewIndex === -1) return { error: 'Review not found' };
+    const [removedReview] = reviews.splice(reviewIndex, 1);
+    await db.saveData('reviews', reviews);
+    return { review: enrichReview(removedReview), summary: this.getProductReviewSummary(productId) };
+  },
+
+  getPendingReviews(filters = {}) {
+    return this.getReviewQueue({ ...filters, status: 'pending' });
+  },
+
+  getReviewQueue(filters = {}) {
+    const status = sanitizeText(filters.status || 'all', 20);
+    const sort = sanitizeText(filters.sort || 'newest', 20);
+    const productId = sanitizeText(filters.productId || '', 40);
+    const search = sanitizeText(filters.search || '', 120).toLowerCase();
+    const rating = Number(filters.rating) || 0;
+
+    let filtered = [...reviews];
+    if (status !== 'all' && REVIEW_STATUSES.includes(status)) filtered = filtered.filter(review => review.status === status);
+    if (productId) filtered = filtered.filter(review => review.productId === productId);
+    if (rating >= 1 && rating <= 5) filtered = filtered.filter(review => review.rating === rating);
+    if (search) {
+      filtered = filtered.filter(review =>
+        review.comment.toLowerCase().includes(search) ||
+        review.userName.toLowerCase().includes(search) ||
+        (products.find(product => product.id === review.productId)?.name || '').toLowerCase().includes(search)
+      );
+    }
+
+    filtered.sort(REVIEW_SORTERS[sort] || REVIEW_SORTERS.newest);
+    return filtered.map(enrichReview);
+  },
+
+  getReviewAnalytics() {
+    const byStatus = reviews.reduce((acc, review) => {
+      acc[review.status] = (acc[review.status] || 0) + 1;
+      return acc;
+    }, { pending: 0, approved: 0, rejected: 0 });
+    const byRating = reviews.reduce((acc, review) => {
+      acc[review.rating] = (acc[review.rating] || 0) + 1;
+      return acc;
+    }, { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 });
+    const topRatedProducts = products
+      .map(product => enrichProduct(product))
+      .filter(product => product.reviewCount > 0)
+      .sort((a, b) => (b.averageRating - a.averageRating) || (b.reviewCount - a.reviewCount))
+      .slice(0, 5)
+      .map(product => ({
+        id: product.id,
+        slug: product.slug,
+        name: product.name,
+        averageRating: product.averageRating,
+        reviewCount: product.reviewCount
+      }));
+
+    return {
+      totals: {
+        total: reviews.length,
+        withPhotos: reviews.filter(review => (review.photos || []).length > 0).length,
+        avgPendingHours: reviews.filter(review => review.status === 'pending').length
+          ? Number((reviews
+            .filter(review => review.status === 'pending')
+            .reduce((sum, review) => sum + ((Date.now() - new Date(review.createdAt).getTime()) / 36e5), 0) / reviews.filter(review => review.status === 'pending').length).toFixed(1))
+          : 0
+      },
+      byStatus,
+      byRating,
+      topRatedProducts
+    };
+  },
+
+  async moderateReview(reviewId, status, adminUser, rejectionNote = '') {
+    if (!['approved', 'rejected'].includes(status)) return { error: 'Invalid review status' };
+    const review = reviews.find(entry => entry.id === reviewId);
+    if (!review) return { error: 'Review not found' };
+    const cleanNote = sanitizeText(rejectionNote, 280);
+    if (status === 'rejected' && cleanNote.length < 10) {
+      return { error: 'Rejection note must be at least 10 characters' };
+    }
+
+    review.status = status;
+    review.approvedAt = status === 'approved' ? new Date().toISOString() : null;
+    review.approvedBy = status === 'approved' ? (adminUser?.id || 'admin') : null;
+    review.rejectionNote = status === 'rejected' ? cleanNote : '';
+    review.moderatedAt = new Date().toISOString();
+    review.moderatedBy = adminUser?.id || 'admin';
+    await db.saveData('reviews', reviews);
+
+    return {
+      review: enrichReview(review),
+      summary: this.getProductReviewSummary(review.productId),
+      analytics: this.getReviewAnalytics()
+    };
   },
 
   // ══════ CART (per user) ══════
@@ -906,15 +1329,24 @@ const store = {
       const d = new Date(o.placedAt).toDateString();
       return d === new Date().toDateString();
     });
+    const reviewAnalytics = this.getReviewAnalytics();
     return {
       totalProducts: products.length,
       totalOrders: orders.length,
       totalRevenue,
       totalCustomers: users.filter(u => u.role === 'customer').length,
+      pendingReviews: reviews.filter(review => review.status === 'pending').length,
+      rejectedReviews: reviews.filter(review => review.status === 'rejected').length,
       todayOrders: todayOrders.length,
       todayRevenue: todayOrders.reduce((s, o) => s + o.totalPrice, 0),
       lowStockProducts: products.filter(p => p.stock <= 10).length,
-      unreadNotifications: this.getUnreadCount()
+      unreadNotifications: this.getUnreadCount(),
+      reviewsWithPhotos: reviewAnalytics.totals.withPhotos,
+      avgReviewRating: reviews.filter(review => review.status === 'approved').length
+        ? Number((reviews
+          .filter(review => review.status === 'approved')
+          .reduce((sum, review) => sum + review.rating, 0) / reviews.filter(review => review.status === 'approved').length).toFixed(1))
+        : 0
     };
   }
 };

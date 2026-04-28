@@ -6,6 +6,10 @@ const App = {
   currentPage: 'home',
   currentCategory: 'all',
   products: [],
+  selectedProductId: null,
+  selectedProductReviewMeta: null,
+  productSort: 'featured',
+  reviewFilters: { sort: 'newest', rating: '', withPhotos: false },
   searchTimeout: null,
   googleClientId: '',
   googleButtonsRendered: false,
@@ -15,6 +19,7 @@ const App = {
     document.body.dataset.page = this.currentPage;
     await this.checkAuth();
     await this.loadProducts();
+    await this.openProductFromLocation();
     await this.initGoogleAuth();
     this.updateCartBadge();
   },
@@ -101,6 +106,9 @@ const App = {
 
   closeModals() {
     document.querySelectorAll('.modal-overlay').forEach(m => m.style.display = 'none');
+    if (window.location.pathname.startsWith('/products/')) {
+      history.replaceState({}, '', '/');
+    }
   },
 
   async handleLogin(e) {
@@ -372,7 +380,7 @@ const App = {
     const grid = document.getElementById('products-grid');
     spinner.classList.add('active'); grid.innerHTML = '';
     try {
-      const data = await API.getProducts(this.currentCategory);
+      const data = await API.getProducts(this.currentCategory, { sort: this.productSort });
       this.products = data.products;
       this.renderProducts(this.products);
     } catch { grid.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:40px;">Failed to load.</p>'; }
@@ -386,6 +394,11 @@ const App = {
   filterCategory(cat) {
     this.currentCategory = cat;
     document.querySelectorAll('.cat-btn').forEach(b => b.classList.toggle('active', b.dataset.category === cat));
+    this.loadProducts();
+  },
+
+  setProductSort(sort) {
+    this.productSort = sort || 'featured';
     this.loadProducts();
   },
 
@@ -405,6 +418,10 @@ const App = {
         <div class="product-card-body">
           <div class="product-card-tags">${p.tags.slice(0,2).map(t=>`<span class="product-tag">${t}</span>`).join('')}</div>
           <h3 class="product-card-name">${p.name}</h3>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;color:var(--text-muted);font-size:13px;">
+            <span style="color:#f5b301;">${this.renderStars(p.averageRating || 0, true)}</span>
+            <span>${p.reviewCount ? `${p.averageRating || 0} (${p.reviewCount})` : 'No ratings yet'}</span>
+          </div>
           <p class="product-card-desc">${p.description}</p>
           <div class="product-card-meta"><span>⚖️ ${p.weight}</span><span>📍 ${(p.farmOrigin||'').split(' - ')[1]||p.farmOrigin}</span></div>
           <div class="product-card-footer">
@@ -430,13 +447,18 @@ const App = {
       const res = await API.request(`/products/${id}`);
       const p = res.product;
       if (!p) return;
+      this.selectedProductId = p.id;
+      history.replaceState({}, '', `/products/${p.slug || p.id}`);
       document.getElementById('pd-img').style.backgroundImage = `url('${p.imageUrl}')`;
       document.getElementById('pd-name').textContent = p.name;
+      document.getElementById('pd-share-link').value = `${window.location.origin}/products/${p.slug || p.id}`;
       document.getElementById('pd-tags').innerHTML = p.tags.map(t=>`<span class="product-tag">${t}</span>`).join('');
       document.getElementById('pd-price').textContent = `₹${p.price} / ${p.unit}`;
       document.getElementById('pd-desc').textContent = p.description;
       document.getElementById('pd-weight').textContent = p.weight;
       document.getElementById('pd-farm').textContent = p.farmOrigin;
+      document.getElementById('pd-rating-stars').textContent = this.renderStars(p.averageRating || 0, true);
+      document.getElementById('pd-rating-text').textContent = p.reviewCount ? `${p.averageRating || 0} from ${p.reviewCount} review${p.reviewCount === 1 ? '' : 's'}` : 'No approved reviews yet';
       const stockBadge = document.getElementById('pd-stock');
       if (p.stock <= 0) {
         stockBadge.className = 'stock-badge out-of-stock'; stockBadge.textContent = 'Out of Stock';
@@ -464,8 +486,206 @@ const App = {
           App.closeModals(); 
         };
       }
+      await this.loadProductReviews(p.id);
       this.showModal('product-details');
     } catch (err) { }
+  },
+
+  async openProductFromLocation() {
+    const slug = window.__GVF_PRODUCT_SLUG || (window.location.pathname.startsWith('/products/') ? window.location.pathname.split('/products/')[1] : '');
+    if (!slug) return;
+    const matched = this.products.find(product => product.slug === slug);
+    if (matched) await this.viewProductDetails(matched.id);
+  },
+
+  renderStars(rating, compact = false) {
+    const rounded = compact ? Math.round(Number(rating) || 0) : Number(rating) || 0;
+    return Array.from({ length: 5 }, (_, index) => index < rounded ? '★' : '☆').join('');
+  },
+
+  async loadProductReviews(productId) {
+    const listEl = document.getElementById('pd-reviews-list');
+    const statusEl = document.getElementById('pd-review-status');
+    const eligibilityEl = document.getElementById('pd-review-eligibility');
+    const formWrap = document.getElementById('pd-review-form-wrap');
+    const form = document.getElementById('pd-review-form');
+    const submitBtn = document.getElementById('pd-review-submit');
+    const deleteBtn = document.getElementById('pd-review-delete');
+    if (!listEl || !statusEl || !eligibilityEl || !formWrap || !form) return;
+
+    listEl.innerHTML = '<p style="color:var(--text-muted);font-size:13px;">Loading reviews...</p>';
+    statusEl.textContent = '';
+    eligibilityEl.textContent = '';
+    formWrap.style.display = 'none';
+    if (deleteBtn) deleteBtn.style.display = 'none';
+    if (submitBtn) submitBtn.textContent = 'Submit Review';
+
+    try {
+      const data = await API.getProductReviews(productId, this.reviewFilters);
+      this.selectedProductReviewMeta = data;
+      document.getElementById('pd-rating-stars').textContent = this.renderStars(data.summary.averageRating || 0, true);
+      document.getElementById('pd-rating-text').textContent = data.summary.reviewCount
+        ? `${data.summary.averageRating || 0} from ${data.summary.reviewCount} review${data.summary.reviewCount === 1 ? '' : 's'}`
+        : 'No approved reviews yet';
+
+      if (!data.reviews.length) {
+        listEl.innerHTML = '<p style="color:var(--text-muted);font-size:13px;">Be the first customer to share feedback after delivery.</p>';
+      } else {
+        listEl.innerHTML = data.reviews.map(review => `
+          <div style="padding:14px 0;border-top:1px solid var(--border-subtle);">
+            <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:6px;">
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <strong style="font-size:14px;">${review.userName}</strong>
+                ${review.updatedAt ? `<span style="font-size:11px;color:var(--accent);background:rgba(212,167,69,0.1);border:1px solid rgba(212,167,69,0.2);padding:2px 8px;border-radius:999px;">Edited</span>` : ''}
+              </div>
+              <span style="font-size:12px;color:var(--text-muted);">${new Date(review.updatedAt || review.createdAt).toLocaleDateString('en-IN')}</span>
+            </div>
+            <div style="color:#f5b301;font-size:14px;margin-bottom:6px;">${this.renderStars(review.rating, true)}</div>
+            ${review.updatedAt ? `<div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;">Updated ${new Date(review.updatedAt).toLocaleString('en-IN', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })}</div>` : ''}
+            <p style="margin:0;color:var(--text-secondary);font-size:13px;line-height:1.5;">${review.comment}</p>
+            ${(review.photos || []).length ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">${review.photos.map(photo => `<a href="${photo.url}" target="_blank" rel="noreferrer"><img src="${photo.url}" alt="Review photo" style="width:76px;height:76px;object-fit:cover;border-radius:10px;border:1px solid var(--border-subtle);"></a>`).join('')}</div>` : ''}
+          </div>
+        `).join('');
+      }
+
+      const eligibility = data.eligibility;
+      if (!API.getToken()) {
+        eligibilityEl.innerHTML = `<button class="btn btn-outline btn-sm" onclick="App.showModal('login')">Login to review after delivery</button>`;
+        return;
+      }
+      if (!eligibility) return;
+
+      if (eligibility.existingReview?.status === 'pending') {
+        statusEl.textContent = 'Your review is pending admin approval.';
+      } else if (eligibility.existingReview?.status === 'approved') {
+        statusEl.textContent = 'You have already reviewed this product. Editing it will send it back for approval.';
+      } else if (eligibility.existingReview?.status === 'rejected') {
+        statusEl.textContent = `Your earlier review was rejected. ${eligibility.existingReview.rejectionNote || 'You can update it and send it for approval again.'}`;
+      }
+
+      if (eligibility.eligible || eligibility.existingReview) {
+        form.reset();
+        if (eligibility.existingReview) {
+          document.getElementById('pd-review-rating').value = eligibility.existingReview.rating;
+          document.getElementById('pd-review-comment').value = eligibility.existingReview.comment || '';
+          this.renderReviewPhotoPreview(eligibility.existingReview.photos || []);
+          if (submitBtn) submitBtn.textContent = 'Update Review';
+          if (deleteBtn) deleteBtn.style.display = 'inline-flex';
+        } else {
+          this.renderReviewPhotoPreview([]);
+        }
+        formWrap.style.display = 'block';
+      } else if (eligibility.reason) {
+        eligibilityEl.textContent = eligibility.reason;
+      }
+    } catch (err) {
+      listEl.innerHTML = '<p style="color:var(--text-muted);font-size:13px;">Unable to load reviews right now.</p>';
+    }
+  },
+
+  async submitProductReview(e, productId = null) {
+    e.preventDefault();
+    const targetProductId = productId || this.selectedProductId;
+    if (!targetProductId) return;
+    const btn = document.getElementById('pd-review-submit');
+    const rating = parseInt(document.getElementById('pd-review-rating').value, 10);
+    const comment = document.getElementById('pd-review-comment').value.trim();
+    const photos = await this.collectReviewPhotos();
+    const existingReview = this.selectedProductReviewMeta?.eligibility?.existingReview;
+    btn.disabled = true;
+    btn.textContent = existingReview ? 'Updating...' : 'Submitting...';
+    try {
+      if (existingReview) {
+        await API.updateProductReview(targetProductId, rating, comment, photos);
+        this.toast('Review updated and sent for approval', 'success');
+      } else {
+        await API.submitProductReview(targetProductId, rating, comment, photos);
+        this.toast('Review submitted for admin approval', 'success');
+      }
+      await this.loadProducts();
+      await this.loadProductReviews(targetProductId);
+      if (this.currentPage === 'orders') await this.loadOrders();
+    } catch (err) {
+      this.toast(err.message || 'Unable to submit review', 'error');
+    }
+    btn.disabled = false;
+    btn.textContent = this.selectedProductReviewMeta?.eligibility?.existingReview ? 'Update Review' : 'Submit Review';
+  },
+
+  async collectReviewPhotos() {
+    const input = document.getElementById('pd-review-photos');
+    if (!input) return [];
+    if (!input.files?.length) {
+      return this.selectedProductReviewMeta?.eligibility?.existingReview?.photos?.map(photo => photo.url) || [];
+    }
+
+    const files = Array.from(input.files).slice(0, 3);
+    return Promise.all(files.map(file => new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    })));
+  },
+
+  renderReviewPhotoPreview(photos) {
+    const preview = document.getElementById('pd-review-photo-preview');
+    if (!preview) return;
+    preview.innerHTML = (photos || []).map(photo => {
+      const url = photo.url || photo;
+      return `<img src="${url}" alt="Selected review photo" style="width:72px;height:72px;object-fit:cover;border-radius:10px;border:1px solid var(--border-subtle);">`;
+    }).join('');
+  },
+
+  handleReviewPhotoSelection(event) {
+    const files = Array.from(event.target.files || []).slice(0, 3);
+    this.renderReviewPhotoPreview(files.map(file => URL.createObjectURL(file)));
+  },
+
+  setReviewSort(sort) {
+    this.reviewFilters.sort = sort || 'newest';
+    if (this.selectedProductId) this.loadProductReviews(this.selectedProductId);
+  },
+
+  setReviewRatingFilter(rating) {
+    this.reviewFilters.rating = rating;
+    if (this.selectedProductId) this.loadProductReviews(this.selectedProductId);
+  },
+
+  toggleReviewPhotoFilter(checked) {
+    this.reviewFilters.withPhotos = Boolean(checked);
+    if (this.selectedProductId) this.loadProductReviews(this.selectedProductId);
+  },
+
+  copyProductShareLink() {
+    const input = document.getElementById('pd-share-link');
+    if (!input) return;
+    navigator.clipboard.writeText(input.value);
+    this.toast('Product link copied', 'success');
+  },
+
+  async deleteProductReview(productId = null) {
+    const targetProductId = productId || this.selectedProductId;
+    if (!targetProductId) return;
+    if (!confirm('Delete your review for this product?')) return;
+    const btn = document.getElementById('pd-review-delete');
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Deleting...';
+    }
+    try {
+      await API.deleteProductReview(targetProductId);
+      this.toast('Review deleted', 'success');
+      await this.loadProducts();
+      await this.loadProductReviews(targetProductId);
+      if (this.currentPage === 'orders') await this.loadOrders();
+    } catch (err) {
+      this.toast(err.message || 'Unable to delete review', 'error');
+    }
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Delete Review';
+    }
   },
 
   // ── Cart ──
@@ -696,6 +916,11 @@ const App = {
           </div>
           <div class="order-progress">${this.renderOrderSteps(o.status)}</div>
           <div class="order-card-items">${o.items.map(i => `<div class="order-card-item"><span>${i.emoji} ${i.name} × ${i.quantity}</span><span>₹${i.subtotal}</span></div>`).join('')}</div>
+          ${o.status === 'delivered' ? `
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 6px;">
+              ${o.items.map(i => `<button class="btn btn-outline btn-sm" onclick="App.viewProductDetails('${i.productId}')">Review ${i.name}</button>`).join('')}
+            </div>
+          ` : ''}
           <div class="order-policy ${canCancel ? 'active' : ''}">${canCancel ? `Cancellation available until ${deadlineText}` : this.getOrderPolicyText(o)}</div>
           <div class="order-card-footer"><span style="color:var(--text-muted);font-size:13px">Payment: ${o.paymentMethod || 'COD'}</span><span class="order-card-total">₹${o.totalPrice}</span></div>
           <div class="order-card-actions">${canCancel ? `<button class="btn btn-danger btn-sm" onclick="App.cancelOrder('${o.orderId}')">Cancel Order</button>` : ''}</div>

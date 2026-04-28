@@ -4,12 +4,10 @@ const store = require('../models/store');
 
 // GET /api/products
 router.get('/', (req, res) => {
-  const { category, search } = req.query;
-  if (search) {
-    const results = store.searchProducts(search);
-    return res.json({ success: true, count: results.length, products: results });
-  }
-  const products = store.getAllProducts(category);
+  const { category, search, sort, minRating } = req.query;
+  const products = search
+    ? store.searchProducts(search)
+    : store.getAllProducts(category, { search, sort, minRating });
   res.json({ success: true, count: products.length, products });
 });
 
@@ -18,6 +16,58 @@ router.get('/:id', (req, res) => {
   const product = store.getProductById(req.params.id);
   if (!product) return res.status(404).json({ success: false, error: 'Product not found' });
   res.json({ success: true, product });
+});
+
+// GET /api/products/:id/reviews
+router.get('/:id/reviews', (req, res) => {
+  const product = store.getProductById(req.params.id);
+  if (!product) return res.status(404).json({ success: false, error: 'Product not found' });
+  const reviews = store.getProductReviews(req.params.id, req.query);
+  const eligibility = store.getReviewEligibility(req.params.id, req.userId);
+  res.json({
+    success: true,
+    summary: store.getProductReviewSummary(req.params.id),
+    reviews,
+    eligibility: eligibility.error ? null : eligibility,
+    filters: {
+      sort: req.query.sort || 'newest',
+      rating: Number(req.query.rating) || 0,
+      withPhotos: String(req.query.withPhotos || '') === 'true'
+    }
+  });
+});
+
+// POST /api/products/:id/reviews
+router.post('/:id/reviews', async (req, res) => {
+  if (!req.userId) return res.status(401).json({ success: false, error: 'Login required to submit a review' });
+  const result = await store.addReview(req.userId, req.params.id, req.body);
+  if (result.error) {
+    const statusCode = result.error.includes('not found') ? 404 : 400;
+    return res.status(statusCode).json({ success: false, error: result.error });
+  }
+  res.status(201).json({ success: true, review: result.review, summary: result.summary });
+});
+
+// PUT /api/products/:id/reviews
+router.put('/:id/reviews', async (req, res) => {
+  if (!req.userId) return res.status(401).json({ success: false, error: 'Login required to update a review' });
+  const result = await store.updateReview(req.userId, req.params.id, req.body);
+  if (result.error) {
+    const statusCode = result.error.includes('not found') ? 404 : 400;
+    return res.status(statusCode).json({ success: false, error: result.error });
+  }
+  res.json({ success: true, review: result.review, summary: result.summary });
+});
+
+// DELETE /api/products/:id/reviews
+router.delete('/:id/reviews', async (req, res) => {
+  if (!req.userId) return res.status(401).json({ success: false, error: 'Login required to delete a review' });
+  const result = await store.deleteReview(req.userId, req.params.id);
+  if (result.error) {
+    const statusCode = result.error.includes('not found') ? 404 : 400;
+    return res.status(statusCode).json({ success: false, error: result.error });
+  }
+  res.json({ success: true, review: result.review, summary: result.summary });
 });
 
 // POST /api/products (admin only — auth checked in server.js middleware)

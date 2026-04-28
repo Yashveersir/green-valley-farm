@@ -4,12 +4,30 @@
 
 const API = {
   BASE: '/api',
+  getStoragePrefix() {
+    return window.location.pathname.startsWith('/admin') ? 'gvf_admin' : 'gvf_store';
+  },
+  getTokenKey() {
+    return `${this.getStoragePrefix()}_token`;
+  },
+  getUserKey() {
+    return `${this.getStoragePrefix()}_user`;
+  },
 
-  getToken() { return localStorage.getItem('gvf_token'); },
-  setToken(t) { localStorage.setItem('gvf_token', t); },
-  clearToken() { localStorage.removeItem('gvf_token'); localStorage.removeItem('gvf_user'); },
-  getUser() { try { return JSON.parse(localStorage.getItem('gvf_user')); } catch { return null; } },
-  setUser(u) { localStorage.setItem('gvf_user', JSON.stringify(u)); },
+  getToken() { return localStorage.getItem(this.getTokenKey()); },
+  setToken(t) { localStorage.setItem(this.getTokenKey(), t); },
+  clearToken() {
+    localStorage.removeItem(this.getTokenKey());
+    localStorage.removeItem(this.getUserKey());
+  },
+  getUser() {
+    try {
+      return JSON.parse(localStorage.getItem(this.getUserKey()));
+    } catch {
+      return null;
+    }
+  },
+  setUser(u) { localStorage.setItem(this.getUserKey(), JSON.stringify(u)); },
 
   async request(endpoint, options = {}) {
     const headers = { 'Content-Type': 'application/json' };
@@ -65,11 +83,38 @@ const API = {
   },
 
   // Products
-  async getProducts(category) {
-    const q = category && category !== 'all' ? `?category=${category}` : '';
+  async getProducts(category, options = {}) {
+    const params = new URLSearchParams();
+    if (category && category !== 'all') params.set('category', category);
+    if (options.sort) params.set('sort', options.sort);
+    if (options.minRating) params.set('minRating', options.minRating);
+    const q = params.toString() ? `?${params.toString()}` : '';
     return this.request(`/products${q}`);
   },
   async searchProducts(query) { return this.request(`/products?search=${encodeURIComponent(query)}`); },
+  async getProductReviews(productId, filters = {}) {
+    const params = new URLSearchParams();
+    if (filters.sort) params.set('sort', filters.sort);
+    if (filters.rating) params.set('rating', filters.rating);
+    if (filters.withPhotos) params.set('withPhotos', 'true');
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return this.request(`/products/${productId}/reviews${query}`);
+  },
+  async submitProductReview(productId, rating, comment, photos = []) {
+    return this.request(`/products/${productId}/reviews`, {
+      method: 'POST',
+      body: JSON.stringify({ rating, comment, photos })
+    });
+  },
+  async updateProductReview(productId, rating, comment, photos = []) {
+    return this.request(`/products/${productId}/reviews`, {
+      method: 'PUT',
+      body: JSON.stringify({ rating, comment, photos })
+    });
+  },
+  async deleteProductReview(productId) {
+    return this.request(`/products/${productId}/reviews`, { method: 'DELETE' });
+  },
 
   // Cart
   async getCart() { return this.request('/cart'); },
@@ -93,6 +138,23 @@ const API = {
   },
   async verifyPayment(details) {
     return this.request('/payments/verify-payment', { method: 'POST', body: JSON.stringify(details) });
+  },
+
+  // Admin reviews
+  async getPendingReviews(filters = {}) {
+    const params = new URLSearchParams();
+    if (filters.status) params.set('status', filters.status);
+    if (filters.sort) params.set('sort', filters.sort);
+    if (filters.rating) params.set('rating', filters.rating);
+    if (filters.search) params.set('search', filters.search);
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return this.request(`/admin/reviews${query}`);
+  },
+  async moderateReview(reviewId, status, rejectionNote = '') {
+    return this.request(`/admin/reviews/${reviewId}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status, rejectionNote })
+    });
   },
 
   // Farm
