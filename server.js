@@ -30,11 +30,12 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://accounts.google.com", "https://checkout.razorpay.com", "https://www.googletagmanager.com", "https://www.google-analytics.com"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://accounts.google.com", "https://checkout.razorpay.com", "https://cdn.razorpay.com", "https://checkout-static-next.razorpay.com", "https://www.googletagmanager.com", "https://www.google-analytics.com"],
+      scriptSrcAttr: ["'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://accounts.google.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "blob:", "https:", "http:"],
-      connectSrc: ["'self'", "https://accounts.google.com", "https://api.razorpay.com", "https://lux-gateway.razorpay.com", "https://www.google-analytics.com"],
+      connectSrc: ["'self'", "https://accounts.google.com", "https://api.razorpay.com", "https://lux-gateway.razorpay.com", "https://lumberjack.razorpay.com", "https://cdn.razorpay.com", "https://checkout-static-next.razorpay.com", "https://www.google-analytics.com"],
       frameSrc: ["'self'", "https://accounts.google.com", "https://api.razorpay.com"],
       objectSrc: ["'none'"],
       upgradeInsecureRequests: [],

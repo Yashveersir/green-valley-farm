@@ -160,3 +160,5 @@ const API = {
   // Farm
   async getFarmInfo() { return this.request('/farm'); },
 };
+
+window.API = API;
