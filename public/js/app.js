@@ -11,6 +11,7 @@ const App = {
   productSort: 'featured',
   reviewFilters: { sort: 'newest', rating: '', withPhotos: false },
   cookieConsentKey: 'gvf_cookie_notice_ack',
+  productLoadSeq: 0,
   searchTimeout: null,
   googleClientId: '',
   googleButtonsRendered: false,
@@ -378,15 +379,22 @@ const App = {
 
   // ── Products ──
   async loadProducts() {
+    const loadSeq = ++this.productLoadSeq;
     const spinner = document.getElementById('loading-spinner');
     const grid = document.getElementById('products-grid');
     spinner.classList.add('active'); grid.innerHTML = '';
     try {
       const data = await API.getProducts(this.currentCategory, { sort: this.productSort });
+      if (loadSeq !== this.productLoadSeq) return;
       this.products = data.products;
       this.renderProducts(this.products);
-    } catch { grid.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:40px;">Failed to load.</p>'; }
-    spinner.classList.remove('active');
+    } catch {
+      if (loadSeq === this.productLoadSeq) {
+        grid.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:40px;">Failed to load.</p>';
+      }
+    } finally {
+      if (loadSeq === this.productLoadSeq) spinner.classList.remove('active');
+    }
   },
 
   async searchProducts(query) {
