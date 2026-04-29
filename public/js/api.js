@@ -10,14 +10,23 @@ const API = {
   getTokenKey() {
     return `${this.getStoragePrefix()}_token`;
   },
+  getRefreshTokenKey() {
+    return `${this.getStoragePrefix()}_refresh_token`;
+  },
   getUserKey() {
     return `${this.getStoragePrefix()}_user`;
   },
 
   getToken() { return localStorage.getItem(this.getTokenKey()); },
   setToken(t) { localStorage.setItem(this.getTokenKey(), t); },
+  getRefreshToken() { return localStorage.getItem(this.getRefreshTokenKey()); },
+  setRefreshToken(t) {
+    if (t) localStorage.setItem(this.getRefreshTokenKey(), t);
+    else localStorage.removeItem(this.getRefreshTokenKey());
+  },
   clearToken() {
     localStorage.removeItem(this.getTokenKey());
+    localStorage.removeItem(this.getRefreshTokenKey());
     localStorage.removeItem(this.getUserKey());
   },
   getUser() {
@@ -29,13 +38,43 @@ const API = {
   },
   setUser(u) { localStorage.setItem(this.getUserKey(), JSON.stringify(u)); },
 
-  async request(endpoint, options = {}) {
+  async rawRequest(endpoint, options = {}) {
     const headers = { 'Content-Type': 'application/json' };
     const token = this.getToken();
     if (token) headers['Authorization'] = `Bearer ${token}`;
+    const res = await fetch(`${this.BASE}${endpoint}`, { headers, ...options });
+    const data = await res.json().catch(() => ({}));
+    return { res, data };
+  },
+
+  async refreshSession() {
+    const refreshToken = this.getRefreshToken();
+    if (!refreshToken) throw new Error('Session expired');
+    const { res, data } = await fetch(`${this.BASE}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken })
+    }).then(async (response) => ({
+      res: response,
+      data: await response.json().catch(() => ({}))
+    }));
+    if (!res.ok || !data.token || !data.refreshToken) {
+      this.clearToken();
+      throw new Error(data.error || 'Session expired');
+    }
+    this.setToken(data.token);
+    this.setRefreshToken(data.refreshToken);
+    if (data.user) this.setUser(data.user);
+    return data;
+  },
+
+  async request(endpoint, options = {}, retry = true) {
     try {
-      const res = await fetch(`${this.BASE}${endpoint}`, { headers, ...options });
-      const data = await res.json();
+      const { res, data } = await this.rawRequest(endpoint, options);
+      if (res.status === 401 && retry && endpoint !== '/auth/refresh' && endpoint !== '/auth/login') {
+        await this.refreshSession();
+        return this.request(endpoint, options, false);
+      }
       if (!res.ok) throw new Error(data.error || 'Request failed');
       return data;
     } catch (err) {
@@ -58,27 +97,32 @@ const API = {
     const otpToken = sessionStorage.getItem('gvf_otpToken') || '';
     const data = await this.request('/auth/verify-otp', { method: 'POST', body: JSON.stringify({ email, otp, otpToken }) });
     sessionStorage.removeItem('gvf_otpToken');
-    this.setToken(data.token); this.setUser(data.user);
+    this.setToken(data.token); this.setRefreshToken(data.refreshToken); this.setUser(data.user);
     return data;
   },
   async register(name, email, password, phone) {
     const data = await this.request('/auth/register', { method: 'POST', body: JSON.stringify({ name, email, password, phone }) });
-    this.setToken(data.token); this.setUser(data.user);
+    this.setToken(data.token); this.setRefreshToken(data.refreshToken); this.setUser(data.user);
     return data;
   },
   async login(email, password) {
     const data = await this.request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
-    this.setToken(data.token); this.setUser(data.user);
+    this.setToken(data.token); this.setRefreshToken(data.refreshToken); this.setUser(data.user);
     return data;
   },
   async loginWithGoogle(credential) {
     const data = await this.request('/auth/google', { method: 'POST', body: JSON.stringify({ credential }) });
-    this.setToken(data.token); this.setUser(data.user);
+    this.setToken(data.token); this.setRefreshToken(data.refreshToken); this.setUser(data.user);
     return data;
   },
   async getMe() { return this.request('/auth/me'); },
   async logout() {
-    try { await this.request('/auth/logout', { method: 'POST' }); } catch {}
+    try {
+      await this.request('/auth/logout', {
+        method: 'POST',
+        body: JSON.stringify({ refreshToken: this.getRefreshToken() })
+      }, false);
+    } catch {}
     this.clearToken();
   },
 

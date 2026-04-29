@@ -204,12 +204,20 @@ function adminOnly(req, res, next) {
   next();
 }
 
+function adminProductMutationsOnly(req, res, next) {
+  if (['POST', 'PUT', 'DELETE'].includes(req.method) && req.userRole !== 'admin') {
+    return res.status(403).json({ success: false, error: 'Admin access required' });
+  }
+  next();
+}
+
 // Apply ensureInit THEN authMiddleware to ALL /api routes (order matters!)
 app.use('/api', ensureInit, authMiddleware);
 
 // Routes (with rate limiters on sensitive endpoints)
 app.use('/api/auth', authLimiter, authRouter);
 app.use('/api/products/:id/reviews', reviewLimiter);
+app.use('/api/products', adminProductMutationsOnly);
 app.use('/api/products', productsRouter);
 app.use('/api/cart', cartRouter);
 app.use('/api/orders', ordersRouter);
@@ -226,22 +234,17 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Protect admin product mutations
-app.use('/api/products', (req, res, next) => {
-  if (['POST', 'PUT', 'DELETE'].includes(req.method) && req.userRole !== 'admin') {
-    return res.status(403).json({ success: false, error: 'Admin access required' });
-  }
-  next();
-});
-
 // Status & Diagnosis Route (non-blocking, instant response)
 app.get('/api/status', (req, res) => {
   res.json({
     server: 'Running ✅',
     env_mongodb_uri: process.env.MONGODB_URI ? 'Present ✅' : 'NOT FOUND ❌',
+    env_jwt_secret: process.env.JWT_SECRET ? 'Present ✅' : 'Using fallback ⚠️',
     env_smtp_user: process.env.SMTP_USER ? 'Present ✅' : 'NOT FOUND ❌',
     env_smtp_pass: process.env.SMTP_PASS ? 'Present ✅' : 'NOT FOUND ❌',
     env_smtp_host: process.env.SMTP_HOST ? 'Present ✅' : 'NOT FOUND ❌',
+    env_allowed_origins: process.env.ALLOWED_ORIGINS ? 'Present ✅' : 'Using defaults ℹ️',
+    env_razorpay: process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET ? 'Present ✅' : 'NOT FOUND ❌',
     store_initialized: store.isInitialized ? 'Yes ✅' : 'No ❌',
     db_connected: store.dbConnected ? 'Yes ✅' : 'No ❌',
     timestamp: new Date().toISOString()

@@ -79,8 +79,15 @@ green-valley-poultry-farm/
    PORT=3000
    MONGODB_URI=mongodb://localhost:27017/greenvalley
    JWT_SECRET=your_jwt_secret_key_here
-   EMAIL_USER=your_email@gmail.com
-   EMAIL_PASS=your_email_app_password
+   JWT_EXPIRES_IN=7d
+   BCRYPT_ROUNDS=12
+   SMTP_HOST=smtp-relay.brevo.com
+   SMTP_PORT=587
+   SMTP_USER=your_smtp_user
+   SMTP_PASS=your_smtp_password
+   SMTP_FROM=verified_sender@example.com
+   ALLOWED_ORIGINS=https://www.green-valley-farm.online,https://green-valley-farm.online
+   GOOGLE_CLIENT_ID=your_google_client_id
    TWILIO_ACCOUNT_SID=your_twilio_account_sid
    TWILIO_AUTH_TOKEN=your_twilio_auth_token
    TWILIO_PHONE_NUMBER=+1234567890
@@ -107,7 +114,7 @@ green-valley-poultry-farm/
 ### Authentication
 - `POST /api/auth/register` - Register new user (sends OTP)
 - `POST /api/auth/verify-otp` - Verify OTP and get JWT token
-- `POST /api/auth/login` - Login with phone/email (sends OTP)
+- `POST /api/auth/login` - Login with email and password
 - `GET /api/auth/me` - Get current user profile (requires auth)
 
 ### Products
@@ -149,7 +156,7 @@ The application supports two storage modes:
 
 ### Email Configuration
 For OTP verification emails, configure your email service in `.env`:
-- Gmail users need an "App Password" for `EMAIL_PASS`
+- Gmail users need an app password in `SMTP_PASS`
 - Other SMTP services can be configured in `models/store.js`
 
 ### SMS Configuration (Twilio)
@@ -340,8 +347,17 @@ NODE_ENV=production npm start
 | `PORT` | Server port | `3000` |
 | `MONGODB_URI` | MongoDB connection string | (none) |
 | `JWT_SECRET` | Secret for signing JWT tokens | (required) |
-| `EMAIL_USER` | Email address for sending OTPs | (required) |
-| `EMAIL_PASS` | Email password/App password | (required) |
+| `JWT_EXPIRES_IN` | JWT access token lifetime | `7d` |
+| `ACCESS_TOKEN_EXPIRES_IN` | Short-lived access token lifetime | `15m` |
+| `REFRESH_TOKEN_EXPIRES_IN` | Refresh token lifetime | `30d` |
+| `BCRYPT_ROUNDS` | bcrypt cost factor for password hashing | `12` |
+| `SMTP_HOST` | SMTP host for OTP and order emails | `smtp-relay.brevo.com` |
+| `SMTP_PORT` | SMTP port | `587` |
+| `SMTP_USER` | SMTP username | (required for email) |
+| `SMTP_PASS` | SMTP password/API key | (required for email) |
+| `SMTP_FROM` | Verified sender address used in outgoing emails | `SMTP_USER` |
+| `ALLOWED_ORIGINS` | Comma-separated production CORS allow-list | production farm domains |
+| `GOOGLE_CLIENT_ID` | Google Sign-In OAuth client ID | (optional) |
 | `TWILIO_ACCOUNT_SID` | Twilio Account SID | (optional) |
 | `TWILIO_AUTH_TOKEN` | Twilio Auth Token | (optional) |
 | `TWILIO_PHONE_NUMBER` | Twilio phone number | (optional) |
@@ -355,12 +371,28 @@ NODE_ENV=production npm start
 
 ## 🔒 Security Features
 
-- **JWT Authentication**: Token-based authentication for API requests
+- **JWT Authentication**: Short-lived access JWTs plus rotating refresh tokens for session renewal
+- **bcrypt Password Storage**: Passwords are hashed on registration, reset, profile updates, and migrated from legacy plain-text records during initialization
 - **OTP Verification**: One-time passwords for user registration/login
 - **Input Validation**: Server-side validation for all API endpoints
 - **CORS Configuration**: Restricted to frontend domain
 - **Rate Limiting**: Basic rate limiting on auth endpoints
 - **Admin Middleware**: Role-based access control for admin routes
+
+## 🚀 Before Going Live
+
+1. Push the latest code so `bcryptjs` and `jsonwebtoken` are included in deployment.
+2. In Vercel Project Settings -> Environment Variables, keep your current values and add:
+   `JWT_SECRET=your_long_random_secret`
+3. Also set:
+   `ALLOWED_ORIGINS=https://www.green-valley-farm.online,https://green-valley-farm.online`
+4. Optionally set:
+   `JWT_EXPIRES_IN=7d`
+   `BCRYPT_ROUNDS=12`
+5. Redeploy the project.
+6. After deploy, open `/api/status` and confirm MongoDB, JWT, SMTP, and Razorpay all show as present.
+7. Test these flows once on production:
+   customer register/login, admin login, product add/edit/delete, place order, payment, and order email.
 
 ## 🐛 Troubleshooting
 

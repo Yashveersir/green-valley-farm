@@ -1,23 +1,30 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 const nodemailer = require('nodemailer');
 const db = require('./db');
 
-// LAZY secret getter - ensures env vars are loaded before use
-function getHmacSecret() {
-  return process.env.MONGODB_URI ? process.env.MONGODB_URI.slice(-20) : 'greenvalley-secret-2024';
+const TOKEN_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
+const ACCESS_TOKEN_EXPIRES_IN = process.env.ACCESS_TOKEN_EXPIRES_IN || '15m';
+const REFRESH_TOKEN_EXPIRES_IN = process.env.REFRESH_TOKEN_EXPIRES_IN || '30d';
+const BCRYPT_ROUNDS = Number(process.env.BCRYPT_ROUNDS) || 12;
+
+function getAuthSecret() {
+  return process.env.JWT_SECRET || process.env.MONGODB_URI || 'greenvalley-dev-secret-change-me';
 }
 
-// Stateless token helpers (base64-encoded userId:timestamp:signature)
-function createStatelessToken(userId) {
+// Legacy stateless token helpers kept only so existing signed-in users are not forced out.
+function createLegacyToken(userId) {
   const ts = Date.now();
-  const secret = getHmacSecret();
+  const secret = getAuthSecret();
   const sig = crypto.createHmac('sha256', secret).update(`${userId}:${ts}`).digest('hex').slice(0, 16);
   return Buffer.from(`${userId}:${ts}:${sig}`).toString('base64url');
 }
-function verifyStatelessToken(raw) {
+
+function verifyLegacyToken(raw) {
   try {
     // Support both base64url (new) and base64 (old)
     const decoded = Buffer.from(raw, 'base64url').toString();
@@ -27,13 +34,160 @@ function verifyStatelessToken(raw) {
     const userId = decoded.slice(0, firstColon);
     const middle = decoded.slice(firstColon + 1, lastColon);
     const sig = decoded.slice(lastColon + 1);
-    const secret = getHmacSecret();
+    const secret = getAuthSecret();
     const expected = crypto.createHmac('sha256', secret).update(`${userId}:${middle}`).digest('hex').slice(0, 16);
     if (sig !== expected) return null;
     // Token valid for 7 days
     if (Date.now() - parseInt(middle) > 7 * 24 * 60 * 60 * 1000) return null;
     return userId;
   } catch { return null; }
+}
+
+function createAuthToken(user) {
+  return jwt.sign(
+    { sub: user.id, role: user.role || 'customer', type: 'access' },
+    getAuthSecret(),
+    { expiresIn: ACCESS_TOKEN_EXPIRES_IN || TOKEN_EXPIRES_IN }
+  );
+}
+
+function createRefreshToken(user, sessionId) {
+  return jwt.sign(
+    { sub: user.id, role: user.role || 'customer', type: 'refresh', sid: sessionId },
+    getAuthSecret(),
+    { expiresIn: REFRESH_TOKEN_EXPIRES_IN }
+  );
+}
+
+function verifyJwtToken(raw, expectedType = 'access') {
+  try {
+    const payload = jwt.verify(raw, getAuthSecret());
+    if (payload.type !== expectedType) return null;
+    return payload.sub || payload.userId || null;
+  } catch {
+    return null;
+  }
+}
+
+function decodeJwt(raw) {
+  try {
+    return jwt.verify(raw, getAuthSecret());
+  } catch {
+    return null;
+  }
+}
+
+function isBcryptHash(value) {
+  return /^\$2[aby]\$\d{2}\$/.test(String(value || ''));
+}
+
+async function hashPassword(password) {
+  return bcrypt.hash(String(password || ''), BCRYPT_ROUNDS);
+}
+
+function hashRefreshToken(token) {
+  return crypto.createHash('sha256').update(String(token || '')).digest('hex');
+}
+
+function safeUser(user) {
+  if (!user) return null;
+  const { password, passwordHash, ...safe } = user;
+  return safe;
+}
+
+async function ensureUserPasswordHash(user, fallbackPassword = '') {
+  if (!user) return false;
+  const currentHash = user.passwordHash || '';
+  const legacyPassword = user.password || fallbackPassword;
+
+  if (isBcryptHash(currentHash)) {
+    if (user.password) {
+      delete user.password;
+      return true;
+    }
+    return false;
+  }
+
+  if (isBcryptHash(legacyPassword)) {
+    user.passwordHash = legacyPassword;
+    delete user.password;
+    return true;
+  }
+
+  if (!legacyPassword || String(legacyPassword).startsWith('google:')) {
+    delete user.password;
+    return Boolean(user.password);
+  }
+
+  user.passwordHash = await hashPassword(legacyPassword);
+  delete user.password;
+  return true;
+}
+
+async function ensureAllUserPasswordHashes(userList) {
+  let changed = false;
+  for (const user of userList) {
+    const fallback = SEEDED_ADMIN_PASSWORDS[(user.email || '').toLowerCase().trim()] || '';
+    if (await ensureUserPasswordHash(user, fallback)) changed = true;
+  }
+  return changed;
+}
+
+async function verifyPassword(user, candidatePassword) {
+  if (!user) return false;
+  if (isBcryptHash(user.passwordHash)) {
+    return bcrypt.compare(String(candidatePassword || ''), user.passwordHash);
+  }
+  if (isBcryptHash(user.password)) {
+    return bcrypt.compare(String(candidatePassword || ''), user.password);
+  }
+  return Boolean(user.password) && String(user.password) === String(candidatePassword || '');
+}
+
+function buildAuthResponse(user, refreshToken = null) {
+  return {
+    user: safeUser(user),
+    token: createAuthToken(user),
+    refreshToken
+  };
+}
+
+function getRefreshSessions(user) {
+  if (!user) return [];
+  if (!Array.isArray(user.refreshSessions)) user.refreshSessions = [];
+  return user.refreshSessions;
+}
+
+function pruneRefreshSessions(user) {
+  const now = Date.now();
+  user.refreshSessions = getRefreshSessions(user).filter(session => {
+    const expiresAt = Date.parse(session.expiresAt || '');
+    return session.tokenHash && !Number.isNaN(expiresAt) && expiresAt > now;
+  });
+}
+
+async function issueRefreshSession(user) {
+  pruneRefreshSessions(user);
+  const sessionId = `session-${uuidv4().slice(0, 12)}`;
+  const refreshToken = createRefreshToken(user, sessionId);
+  const payload = decodeJwt(refreshToken);
+  const expiresAt = payload?.exp ? new Date(payload.exp * 1000).toISOString() : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+  getRefreshSessions(user).push({
+    id: sessionId,
+    tokenHash: hashRefreshToken(refreshToken),
+    createdAt: new Date().toISOString(),
+    expiresAt,
+    lastUsedAt: null
+  });
+  return refreshToken;
+}
+
+async function revokeRefreshSession(user, refreshToken) {
+  if (!user || !refreshToken) return false;
+  const tokenHash = hashRefreshToken(refreshToken);
+  const before = getRefreshSessions(user).length;
+  user.refreshSessions = getRefreshSessions(user).filter(session => session.tokenHash !== tokenHash);
+  return before !== user.refreshSessions.length;
 }
 
 const mailer = nodemailer.createTransport({
@@ -72,7 +226,6 @@ let users = [
   }
 ];
 let pendingOtps = {}; // email -> { otp, payload, expires }
-let tokens = {}; // token -> userId
 const SEEDED_ADMIN_PASSWORDS = {
   'sales.greenvalleyfarm@gmail.com': 'REDACTED',
   'REDACTED@gmail.com': 'REDACTED'
@@ -295,10 +448,14 @@ const store = {
           }
 
           users = uniqueUsers;
+          if (await ensureAllUserPasswordHashes(users)) {
+            needsSave = true;
+          }
           if (needsSave) {
             await db.saveData('users', users);
           }
         } else {
+          await ensureAllUserPasswordHashes(users);
           await db.saveData('users', users);
         }
         
@@ -325,6 +482,7 @@ const store = {
         this.dbConnected = true;
       } else {
         console.log('[Store] MongoDB not available, using in-memory defaults (admins + products.json)');
+        await ensureAllUserPasswordHashes(users);
       }
     } catch (err) {
       console.error('[Store] Init error (non-fatal):', err.message);
@@ -337,7 +495,7 @@ const store = {
   // ══════ OTP & AUTH (Stateless HMAC - Works on Vercel Serverless) ══════
   _generateOtpHash(email, otp, expires) {
     // ALWAYS compute secret lazily so env vars are guaranteed loaded
-    return crypto.createHmac('sha256', getHmacSecret()).update(`${email}:${otp}:${expires}`).digest('hex');
+    return crypto.createHmac('sha256', getAuthSecret()).update(`${email}:${otp}:${expires}`).digest('hex');
   },
 
   async sendAuthOtp(email, payload) {
@@ -416,9 +574,9 @@ const store = {
     } else if (payload.action === 'login') {
       const user = users.find(u => (u.email || '').toLowerCase() === cleanEmail);
       if (!user) return { error: 'No account found with this email' };
-      const token = createStatelessToken(user.id);
-      const { password: _, ...safe } = user;
-      return { user: safe, token };
+      const refreshToken = await issueRefreshSession(user);
+      await db.saveData('users', users);
+      return buildAuthResponse(user, refreshToken);
     } else if (payload.action === 'reset-password') {
       const user = users.find(u => u.email.toLowerCase() === cleanEmail);
       if (!user) return { error: 'No account found with this email' };
@@ -430,7 +588,8 @@ const store = {
   async resetUserPassword(email, newPassword) {
     const user = users.find(u => u.email.toLowerCase() === (email || '').trim().toLowerCase());
     if (!user) return { error: 'User not found' };
-    user.password = newPassword;
+    user.passwordHash = await hashPassword(newPassword);
+    delete user.password;
     await db.saveData('users', users);
     return { success: true };
   },
@@ -447,15 +606,18 @@ const store = {
     if (users.find(u => (u.email || '').toLowerCase().trim() === cleanEmail)) return { error: 'Email already registered' };
     const user = {
       id: `user-${uuidv4().slice(0, 8)}`,
-      name, email: cleanEmail, password, phone: phone || '',
+      name,
+      email: cleanEmail,
+      passwordHash: await hashPassword(password),
+      phone: phone || '',
       role: 'customer',
       createdAt: new Date().toISOString()
     };
     users.push(user);
     await db.saveData('users', users);
-    const token = createStatelessToken(user.id);
-    const { password: _, ...safe } = user;
-    return { user: safe, token };
+    const refreshToken = await issueRefreshSession(user);
+    await db.saveData('users', users);
+    return buildAuthResponse(user, refreshToken);
   },
 
   async updateUserProfile(userId, data) {
@@ -463,10 +625,12 @@ const store = {
     if (!user) return { error: 'User not found' };
     if (data.name) user.name = data.name;
     if (data.phone) user.phone = data.phone;
-    if (data.newPassword) user.password = data.newPassword;
+    if (data.newPassword) {
+      user.passwordHash = await hashPassword(data.newPassword);
+      delete user.password;
+    }
     await db.saveData('users', users);
-    const { password: _, ...safe } = user;
-    return { user: safe };
+    return { user: safeUser(user) };
   },
 
   async loginWithGoogle(profile) {
@@ -496,7 +660,6 @@ const store = {
         id: `user-${uuidv4().slice(0, 8)}`,
         name: profile.name || cleanEmail.split('@')[0],
         email: cleanEmail,
-        password: `google:${uuidv4()}`,
         phone: '',
         role: 'customer',
         authProvider: 'google',
@@ -509,9 +672,9 @@ const store = {
     }
 
     await db.saveData('users', users);
-    const token = createStatelessToken(user.id);
-    const { password: _, ...safe } = user;
-    return { user: safe, token };
+    const refreshToken = await issueRefreshSession(user);
+    await db.saveData('users', users);
+    return buildAuthResponse(user, refreshToken);
   },
 
   async loginUser(email, password) {
@@ -521,21 +684,21 @@ const store = {
       const freshUsers = await db.loadData('users');
       if (freshUsers) users = freshUsers;
     }
-    const user = users.find(u => {
-      const userEmail = (u.email || '').trim().toLowerCase();
-      const storedPassword = String(u.password || '');
-      const seededPassword = SEEDED_ADMIN_PASSWORDS[userEmail] || '';
-      return userEmail === cleanEmail && (storedPassword === cleanPassword || seededPassword === cleanPassword);
-    });
+    const user = users.find(u => (u.email || '').trim().toLowerCase() === cleanEmail);
     if (!user) return { error: 'Invalid email or password' };
-    const token = createStatelessToken(user.id);
-    const { password: _, ...safe } = user;
-    return { user: safe, token };
+    const passwordOk = await verifyPassword(user, cleanPassword);
+    if (!passwordOk) return { error: 'Invalid email or password' };
+    if (await ensureUserPasswordHash(user)) {
+      await db.saveData('users', users);
+    }
+    const refreshToken = await issueRefreshSession(user);
+    await db.saveData('users', users);
+    return buildAuthResponse(user, refreshToken);
   },
 
   async verifyToken(token) {
-    // Try stateless HMAC token first
-    const userId = verifyStatelessToken(token);
+    // Try JWT first. Legacy HMAC tokens are accepted temporarily for active sessions.
+    const userId = verifyJwtToken(token, 'access') || verifyLegacyToken(token);
     if (userId) {
       let user = users.find(u => u.id === userId);
       
@@ -550,31 +713,64 @@ const store = {
       }
 
       if (user) {
-        const { password: _, ...safe } = user;
-        return safe;
-      }
-    }
-    // Fallback: old in-memory tokens (for same-instance requests)
-    const oldUserId = tokens[token];
-    if (oldUserId) {
-      let user = users.find(u => u.id === oldUserId);
-      if (!user && this.dbConnected) {
-        const freshUsers = await db.loadData('users');
-        if (freshUsers) {
-          users = freshUsers;
-          user = users.find(u => u.id === oldUserId);
-        }
-      }
-      if (user) {
-        const { password: _, ...safe } = user;
-        return safe;
+        return safeUser(user);
       }
     }
     return null;
   },
 
   logoutUser(token) {
-    delete tokens[token];
+    return Boolean(token);
+  },
+
+  async refreshAuthToken(refreshToken) {
+    const payload = decodeJwt(refreshToken);
+    if (!payload || payload.type !== 'refresh' || !payload.sub || !payload.sid) {
+      return { error: 'Invalid refresh token' };
+    }
+
+    if (this.dbConnected) {
+      const freshUsers = await db.loadData('users');
+      if (freshUsers) users = freshUsers;
+    }
+
+    const user = users.find(u => u.id === payload.sub);
+    if (!user) return { error: 'User not found' };
+
+    pruneRefreshSessions(user);
+    const tokenHash = hashRefreshToken(refreshToken);
+    const session = getRefreshSessions(user).find(entry => entry.id === payload.sid && entry.tokenHash === tokenHash);
+    if (!session) {
+      await db.saveData('users', users);
+      return { error: 'Refresh session expired. Please login again.' };
+    }
+
+    const rotatedRefreshToken = await issueRefreshSession(user);
+    user.refreshSessions = getRefreshSessions(user).filter(entry => entry.id !== session.id);
+    const replacement = getRefreshSessions(user).find(entry => entry.tokenHash === hashRefreshToken(rotatedRefreshToken));
+    if (replacement) replacement.lastUsedAt = new Date().toISOString();
+    await db.saveData('users', users);
+
+    return buildAuthResponse(user, rotatedRefreshToken);
+  },
+
+  async logoutSession(refreshToken) {
+    if (!refreshToken) return { success: true };
+
+    const payload = decodeJwt(refreshToken);
+    if (!payload?.sub) return { success: true };
+
+    if (this.dbConnected) {
+      const freshUsers = await db.loadData('users');
+      if (freshUsers) users = freshUsers;
+    }
+
+    const user = users.find(u => u.id === payload.sub);
+    if (!user) return { success: true };
+    pruneRefreshSessions(user);
+    await revokeRefreshSession(user, refreshToken);
+    await db.saveData('users', users);
+    return { success: true };
   },
 
   // ══════ PRODUCTS ══════

@@ -14,10 +14,17 @@ try {
   console.warn('Razorpay initialization failed:', err.message);
 }
 
+function razorpayConfigured() {
+  return Boolean(razorpayInstance && process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET);
+}
+
 // POST /api/payments/create-order
 router.post('/create-order', async (req, res) => {
   const userId = req.userId;
   if (!userId) return res.status(401).json({ success: false, error: 'Login required' });
+  if (!razorpayConfigured()) {
+    return res.status(503).json({ success: false, error: 'Online payment is not configured' });
+  }
 
   const { amount, currency = 'INR', receipt } = req.body;
   if (!amount || amount < 100) return res.status(400).json({ success: false, error: 'Invalid amount, minimum 100 paise required' });
@@ -41,6 +48,9 @@ router.post('/create-order', async (req, res) => {
 router.post('/verify-payment', async (req, res) => {
   const userId = req.userId;
   if (!userId) return res.status(401).json({ success: false, error: 'Login required' });
+  if (!process.env.RAZORPAY_KEY_SECRET) {
+    return res.status(503).json({ success: false, error: 'Online payment is not configured' });
+  }
 
   const { razorpay_order_id, razorpay_payment_id, razorpay_signature, orderDetails } = req.body;
   

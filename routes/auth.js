@@ -108,10 +108,21 @@ router.get('/me', async (req, res) => {
   res.json({ success: true, user });
 });
 
+// POST /api/auth/refresh
+router.post('/refresh', async (req, res) => {
+  const { refreshToken } = req.body || {};
+  if (!refreshToken) return res.status(401).json({ success: false, error: 'Refresh token required' });
+  const result = await store.refreshAuthToken(refreshToken);
+  if (result.error) return res.status(401).json({ success: false, error: result.error });
+  res.json({ success: true, ...result });
+});
+
 // POST /api/auth/logout
-router.post('/logout', (req, res) => {
+router.post('/logout', async (req, res) => {
   const token = req.headers.authorization?.replace('Bearer ', '');
+  const { refreshToken } = req.body || {};
   if (token) store.logoutUser(token);
+  await store.logoutSession(refreshToken);
   res.json({ success: true });
 });
 
