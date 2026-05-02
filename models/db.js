@@ -60,6 +60,21 @@ const notificationSchema = new mongoose.Schema({
   createdAt: { type: String, required: true }
 }, schemaOptions);
 
+const couponSchema = new mongoose.Schema({
+  id: { type: String, required: true, index: true },
+  code: { type: String, required: true, uppercase: true, trim: true, index: true },
+  type: { type: String, default: 'percentage' },
+  value: { type: Number, required: true, min: 0 },
+  minOrderAmount: { type: Number, default: 0, min: 0 },
+  maxUses: { type: Number, default: 0, min: 0 },
+  perUserLimit: { type: Number, default: 1, min: 1 },
+  usedCount: { type: Number, default: 0, min: 0 },
+  usedBy: { type: Array, default: [] },
+  expiresAt: { type: String, default: null },
+  active: { type: Boolean, default: true },
+  createdAt: { type: String, required: true }
+}, schemaOptions);
+
 const stateSchema = new mongoose.Schema({
   state: { type: mongoose.Schema.Types.Mixed, default: {} }
 }, schemaOptions);
@@ -70,9 +85,19 @@ const collectionSchemas = {
   orders: orderSchema,
   reviews: reviewSchema,
   notifications: notificationSchema,
+  coupons: couponSchema,
   carts: stateSchema,
+  cartActivity: stateSchema,
   pendingOtps: stateSchema
 };
+
+function normalizeDoc(doc) {
+  if (!doc) return null;
+  const { _id, ...rest } = doc;
+  if (_id) rest._id = _id.toString();
+  if (!rest.id && rest._id) rest.id = rest._id;
+  return rest;
+}
 
 function getModel(collectionName) {
   const modelName = `Gvf${collectionName.charAt(0).toUpperCase()}${collectionName.slice(1)}`;
@@ -137,7 +162,7 @@ async function loadData(collectionName) {
   const Model = getModel(collectionName);
   const data = await Model.find({}).lean();
   
-  if (collectionName === 'carts' || collectionName === 'pendingOtps') {
+  if (collectionName === 'carts' || collectionName === 'cartActivity' || collectionName === 'pendingOtps') {
     // Restore raw Objects from standard arrays since MongoDB saves as Array of Docs
     if (!data.length) return null;
     return data[0].state || null;
@@ -146,17 +171,68 @@ async function loadData(collectionName) {
   if (!data || data.length === 0) return null;
   // Remove native mongodb _id wrapper fields when passing back to memory
   // If a doc has _id but no custom 'id', preserve _id as 'id'
-  return data.map(({ _id, ...rest }) => {
-    if (!rest.id && _id) rest.id = _id.toString();
-    return rest;
+  return data.map(normalizeDoc);
+}
+
+async function findData(collectionName, query = {}, options = {}) {
+  if (!isConnected) return null;
+  const Model = getModel(collectionName);
+  let request = Model.find(query);
+  if (options.sort) request = request.sort(options.sort);
+  if (options.limit) request = request.limit(options.limit);
+  const data = await request.lean();
+  return data.map(normalizeDoc);
+}
+
+async function findOneData(collectionName, query = {}, options = {}) {
+  if (!isConnected) return null;
+  const Model = getModel(collectionName);
+  let request = Model.findOne(query);
+  if (options.sort) request = request.sort(options.sort);
+  const doc = await request.lean();
+  return normalizeDoc(doc);
+}
+
+async function createData(collectionName, data) {
+  if (!isConnected) return null;
+  const Model = getModel(collectionName);
+  const created = await Model.create(data);
+  return normalizeDoc(created.toObject());
+}
+
+async function updateOneData(collectionName, filter, update, options = {}) {
+  if (!isConnected) return null;
+  const Model = getModel(collectionName);
+  if (update?.$set?._id) {
+    update = { ...update, $set: { ...update.$set } };
+    delete update.$set._id;
+  }
+  const doc = await Model.findOneAndUpdate(filter, update, {
+    new: true,
+    upsert: false,
+    lean: true,
+    ...options
   });
+  return normalizeDoc(doc);
+}
+
+async function deleteOneData(collectionName, filter) {
+  if (!isConnected) return null;
+  const Model = getModel(collectionName);
+  return Model.deleteOne(filter);
+}
+
+async function countData(collectionName, query = {}) {
+  if (!isConnected) return null;
+  const Model = getModel(collectionName);
+  return Model.countDocuments(query);
 }
 
 async function saveData(collectionName, data) {
   if (!isConnected) return;
   const Model = getModel(collectionName);
   
-  if (collectionName === 'carts' || collectionName === 'pendingOtps') {
+  if (collectionName === 'carts' || collectionName === 'cartActivity' || collectionName === 'pendingOtps') {
     // Carts and Otps are raw objects ({ userId: [...] }) - save as a single state document
     await Model.deleteMany({});
     await Model.create({ state: data }).catch(console.error);
@@ -193,4 +269,18 @@ async function bootstrapCollections(collectionsArray) {
   }
 }
 
-module.exports = { connectDB, loadData, saveData, bootstrapCollections };
+module.exports = {
+  connectDB,
+  loadData,
+  saveData,
+  findData,
+  findOneData,
+  createData,
+  updateOneData,
+  deleteOneData,
+  countData,
+  bootstrapCollections,
+  get isConnected() {
+    return isConnected;
+  }
+};

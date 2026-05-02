@@ -1,5 +1,11 @@
 {
   "version": 2,
+  "crons": [
+    {
+      "path": "/api/jobs/abandoned-carts",
+      "schedule": "0 * * * *"
+    }
+  ],
   "builds": [
     {
       "src": "server.js",

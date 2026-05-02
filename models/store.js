@@ -202,6 +202,7 @@ let products = require('../data/products.json');
 
 // ── In-memory data ──
 let carts = {};       // userId -> cart items[]
+let cartActivity = {}; // userId -> abandoned cart reminder metadata
 let orders = [];
 let notifications = [];
 let reviews = [];
@@ -242,6 +243,9 @@ const REVIEW_SORTERS = {
 };
 const MAX_REVIEW_PHOTOS = 3;
 const MAX_REVIEW_PHOTO_DATA_URL_LENGTH = 450000;
+const ABANDONED_CART_HOURS = Number(process.env.ABANDONED_CART_HOURS) || 4;
+const ABANDONED_CART_COUPON_PERCENT = Number(process.env.ABANDONED_CART_COUPON_PERCENT) || 5;
+const ABANDONED_CART_COUPON_DAYS = Number(process.env.ABANDONED_CART_COUPON_DAYS) || 3;
 
 // ── Coupons in-memory ──
 let coupons = [];
@@ -329,12 +333,63 @@ async function sendDeliveryEmail(order, userEmail) {
   await sendEmail(userEmail, `📦 Order ${order.orderId} Delivered!`, html);
 }
 
+async function sendAbandonedCartEmail(user, cart, coupon) {
+  const items = cart.items.slice(0, 5);
+  const itemRows = items.map(item => `
+      <tr>
+        <td style="padding:10px 0;border-bottom:1px solid #e8f0e8;color:#333;">${escapeHtml(item.name)}</td>
+        <td style="padding:10px 0;border-bottom:1px solid #e8f0e8;text-align:center;color:#555;">${item.quantity}</td>
+        <td style="padding:10px 0;border-bottom:1px solid #e8f0e8;text-align:right;color:#1a4d2e;font-weight:700;">&#8377;${item.subtotal}</td>
+      </tr>`).join('');
+  const extraCount = Math.max(0, cart.items.length - items.length);
+  const shopUrl = 'https://green-valley-farm.online/?utm_source=abandoned_cart&utm_medium=email';
+  const html = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f6f9f4;font-family:'Segoe UI',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:40px 16px;">
+<table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.08);">
+  <tr><td style="background:linear-gradient(135deg,#1a4d2e 0%,#2d7a4a 100%);padding:36px 40px;text-align:center;">
+    <h1 style="margin:0;font-size:26px;color:#ffffff;font-weight:700;">Green Valley Farm</h1>
+    <p style="margin:8px 0 0;color:rgba(255,255,255,0.82);font-size:14px;">Your farm-fresh cart is waiting</p>
+  </td></tr>
+  <tr><td style="padding:34px 40px;">
+    <p style="margin:0 0 14px;color:#333;font-size:16px;">Hello <strong>${escapeHtml(user.name || 'there')}</strong>,</p>
+    <p style="margin:0 0 20px;color:#555;font-size:15px;line-height:1.7;">You left fresh poultry products in your cart. Complete your order soon while stock is still available.</p>
+    <div style="background:#fffdf5;border:2px dashed #d4a745;border-radius:12px;padding:18px;text-align:center;margin:22px 0;">
+      <div style="color:#8b6914;font-size:12px;text-transform:uppercase;letter-spacing:1px;">Use coupon</div>
+      <div style="font-size:28px;font-weight:800;color:#1a4d2e;letter-spacing:2px;margin:6px 0;">${escapeHtml(coupon.code)}</div>
+      <div style="color:#8b6914;font-weight:700;">${coupon.value}% off for the next ${ABANDONED_CART_COUPON_DAYS} days</div>
+    </div>
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0;">
+      ${itemRows}
+      ${extraCount ? `<tr><td colspan="3" style="padding:10px 0;color:#666;font-size:13px;">And ${extraCount} more item${extraCount === 1 ? '' : 's'} in your cart.</td></tr>` : ''}
+      <tr><td colspan="2" style="padding:14px 0;font-weight:700;color:#333;">Cart total</td><td style="padding:14px 0;text-align:right;font-size:18px;font-weight:800;color:#1a4d2e;">&#8377;${cart.totalPrice}</td></tr>
+    </table>
+    <div style="text-align:center;margin-top:28px;">
+      <a href="${shopUrl}" style="display:inline-block;background:linear-gradient(135deg,#1a4d2e,#2d7a4a);color:#fff;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;">Complete Order</a>
+    </div>
+  </td></tr>
+  <tr><td style="padding:18px 40px;background:#f8faf8;text-align:center;border-top:1px solid #e8f0e8;">
+    <p style="margin:0;color:#888;font-size:12px;">Green Valley Poultry Farm | Fresh from our farm to your door</p>
+  </td></tr>
+</table></td></tr></table></body></html>`;
+
+  await sendEmail(user.email, `Complete your Green Valley cart - ${coupon.value}% off inside`, html);
+}
+
 function sanitizeText(value, maxLength = 500) {
   return String(value || '')
     .replace(/<[^>]*>/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, maxLength);
+}
+
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function sanitizeTags(tags) {
@@ -475,6 +530,148 @@ function getCancelDeadline(order) {
   return new Date(new Date(order.placedAt).getTime() + ORDER_CANCEL_WINDOW_MS);
 }
 
+function hasActiveCart(userId) {
+  return Array.isArray(carts[userId]) && carts[userId].length > 0;
+}
+
+function touchCartActivity(userId) {
+  if (!userId || userId === 'guest') return;
+  const now = new Date().toISOString();
+  const previous = cartActivity[userId] || {};
+  cartActivity[userId] = {
+    ...previous,
+    updatedAt: now,
+    reminderSentAt: null,
+    reminderCartUpdatedAt: null,
+    reminderCouponCode: null
+  };
+}
+
+function clearCartActivity(userId) {
+  if (userId && cartActivity[userId]) delete cartActivity[userId];
+}
+
+function buildAbandonedCartCouponCode(userId) {
+  const suffix = crypto
+    .createHash('sha1')
+    .update(`${userId}:${Date.now()}:${uuidv4()}`)
+    .digest('hex')
+    .slice(0, 6)
+    .toUpperCase();
+  return `FRESH${ABANDONED_CART_COUPON_PERCENT}-${suffix}`;
+}
+
+function isMongoReady() {
+  return Boolean(db.isConnected);
+}
+
+async function findUser(query) {
+  if (isMongoReady()) return db.findOneData('users', query);
+  const entries = Object.entries(query);
+  return users.find(user => entries.every(([key, value]) => user[key] === value)) || null;
+}
+
+async function findUserByEmail(email) {
+  const cleanEmail = (email || '').trim().toLowerCase();
+  if (!cleanEmail) return null;
+  if (isMongoReady()) return db.findOneData('users', { email: cleanEmail });
+  return users.find(user => (user.email || '').trim().toLowerCase() === cleanEmail) || null;
+}
+
+async function findUsers(query = {}, options = {}) {
+  if (isMongoReady()) return db.findData('users', query, options);
+  const entries = Object.entries(query);
+  return users.filter(user => entries.every(([key, value]) => user[key] === value));
+}
+
+async function persistUser(user) {
+  if (!user) return null;
+  if (isMongoReady()) {
+    const saved = await db.updateOneData('users', { id: user.id }, { $set: user }, { upsert: true });
+    if (saved) {
+      const index = users.findIndex(entry => entry.id === saved.id);
+      if (index === -1) users.push(saved);
+      else users[index] = saved;
+      return saved;
+    }
+  }
+  const index = users.findIndex(entry => entry.id === user.id);
+  if (index === -1) users.push(user);
+  else users[index] = user;
+  await db.saveData('users', users);
+  return user;
+}
+
+async function findOrder(query) {
+  if (isMongoReady()) return db.findOneData('orders', query);
+  const entries = Object.entries(query);
+  return orders.find(order => entries.every(([key, value]) => order[key] === value)) || null;
+}
+
+async function findOrders(query = {}, options = {}) {
+  const sort = options.sort || { placedAt: -1 };
+  if (isMongoReady()) return db.findData('orders', query, { ...options, sort });
+  const entries = Object.entries(query);
+  const list = orders.filter(order => entries.every(([key, value]) => order[key] === value));
+  return list.sort((a, b) => new Date(b.placedAt || 0) - new Date(a.placedAt || 0));
+}
+
+async function persistOrder(order) {
+  if (!order) return null;
+  if (isMongoReady()) {
+    const saved = await db.updateOneData('orders', { orderId: order.orderId }, { $set: order }, { upsert: true });
+    if (saved) {
+      const index = orders.findIndex(entry => entry.orderId === saved.orderId);
+      if (index === -1) orders.push(saved);
+      else orders[index] = saved;
+      return saved;
+    }
+  }
+  const index = orders.findIndex(entry => entry.orderId === order.orderId);
+  if (index === -1) orders.push(order);
+  else orders[index] = order;
+  await db.saveData('orders', orders);
+  return order;
+}
+
+async function findCoupon(query) {
+  if (isMongoReady()) return db.findOneData('coupons', query);
+  const entries = Object.entries(query);
+  return coupons.find(coupon => entries.every(([key, value]) => coupon[key] === value)) || null;
+}
+
+async function findCouponById(id) {
+  const coupon = await findCoupon({ id });
+  if (coupon) return coupon;
+  if (/^[a-f\d]{24}$/i.test(String(id || ''))) return findCoupon({ _id: id });
+  return null;
+}
+
+async function findCoupons(query = {}, options = {}) {
+  const sort = options.sort || { createdAt: -1 };
+  if (isMongoReady()) return db.findData('coupons', query, { ...options, sort });
+  const entries = Object.entries(query);
+  return coupons.filter(coupon => entries.every(([key, value]) => coupon[key] === value));
+}
+
+async function persistCoupon(coupon) {
+  if (!coupon) return null;
+  if (isMongoReady()) {
+    const saved = await db.updateOneData('coupons', coupon._id ? { _id: coupon._id } : { id: coupon.id }, { $set: coupon }, { upsert: true });
+    if (saved) {
+      const index = coupons.findIndex(entry => entry.id === saved.id);
+      if (index === -1) coupons.push(saved);
+      else coupons[index] = saved;
+      return saved;
+    }
+  }
+  const index = coupons.findIndex(entry => entry.id === coupon.id);
+  if (index === -1) coupons.push(coupon);
+  else coupons[index] = coupon;
+  await db.saveData('coupons', coupons);
+  return coupon;
+}
+
 products = products.map(normalizeProduct);
 
 const store = {
@@ -486,7 +683,7 @@ const store = {
       const connected = await db.connectDB();
       if (connected) {
         console.log('[Store] MongoDB connected, loading data...');
-        await db.bootstrapCollections(['users', 'orders', 'carts', 'notifications', 'products', 'pendingOtps', 'reviews', 'coupons']);
+        await db.bootstrapCollections(['users', 'orders', 'carts', 'cartActivity', 'notifications', 'products', 'pendingOtps', 'reviews', 'coupons']);
 
         const savedUsers = await db.loadData('users');
         if (savedUsers && savedUsers.length > 0) {
@@ -552,6 +749,9 @@ const store = {
 
         const savedCarts = await db.loadData('carts');
         if (savedCarts) carts = savedCarts;
+
+        const savedCartActivity = await db.loadData('cartActivity');
+        if (savedCartActivity) cartActivity = savedCartActivity;
 
         const savedNotifs = await db.loadData('notifications');
         if (savedNotifs) notifications = savedNotifs;
@@ -655,21 +855,16 @@ const store = {
   },
 
   async _executeOtpAction(cleanEmail, payload) {
-    // Robust sync before actions to prevent duplicates/missing users on serverless
-    if (this.dbConnected) {
-      const freshUsers = await db.loadData('users');
-      if (freshUsers) users = freshUsers;
-    }
     if (payload.action === 'register') {
       return await this.registerUser(payload.userData);
     } else if (payload.action === 'login') {
-      const user = users.find(u => (u.email || '').toLowerCase() === cleanEmail);
+      const user = await findUserByEmail(cleanEmail);
       if (!user) return { error: 'No account found with this email' };
       const refreshToken = await issueRefreshSession(user);
-      await db.saveData('users', users);
+      await persistUser(user);
       return buildAuthResponse(user, refreshToken);
     } else if (payload.action === 'reset-password') {
-      const user = users.find(u => u.email.toLowerCase() === cleanEmail);
+      const user = await findUserByEmail(cleanEmail);
       if (!user) return { error: 'No account found with this email' };
       return { success: true, email: cleanEmail };
     }
@@ -677,11 +872,11 @@ const store = {
   },
 
   async resetUserPassword(email, newPassword) {
-    const user = users.find(u => u.email.toLowerCase() === (email || '').trim().toLowerCase());
+    const user = await findUserByEmail(email);
     if (!user) return { error: 'User not found' };
     user.passwordHash = await hashPassword(newPassword);
     delete user.password;
-    await db.saveData('users', users);
+    await persistUser(user);
     return { success: true };
   },
 
@@ -689,12 +884,7 @@ const store = {
     const cleanEmail = (email || '').trim().toLowerCase();
     if (!name || !cleanEmail || !password) return { error: 'Name, email, and password are required' };
     
-    if (this.dbConnected) {
-      const freshUsers = await db.loadData('users');
-      if (freshUsers) users = freshUsers;
-    }
-    
-    if (users.find(u => (u.email || '').toLowerCase().trim() === cleanEmail)) return { error: 'Email already registered' };
+    if (await findUserByEmail(cleanEmail)) return { error: 'Email already registered' };
     const user = {
       id: `user-${uuidv4().slice(0, 8)}`,
       name,
@@ -704,16 +894,14 @@ const store = {
       role: 'customer',
       createdAt: new Date().toISOString()
     };
-    users.push(user);
-    await db.saveData('users', users);
     const refreshToken = await issueRefreshSession(user);
-    await db.saveData('users', users);
+    await persistUser(user);
     sendWelcomeEmail(user).catch(() => {});
     return buildAuthResponse(user, refreshToken);
   },
 
   async updateUserProfile(userId, data) {
-    const user = users.find(u => u.id === userId);
+    const user = await findUser({ id: userId });
     if (!user) return { error: 'User not found' };
     if (data.name) user.name = data.name;
     if (data.phone) user.phone = data.phone;
@@ -721,7 +909,7 @@ const store = {
       user.passwordHash = await hashPassword(data.newPassword);
       delete user.password;
     }
-    await db.saveData('users', users);
+    await persistUser(user);
     return { user: safeUser(user) };
   },
 
@@ -730,15 +918,10 @@ const store = {
     if (!profile.sub || !cleanEmail) return { error: 'Invalid Google profile' };
     if (profile.email_verified === false) return { error: 'Google email is not verified' };
 
-    if (this.dbConnected) {
-      const freshUsers = await db.loadData('users');
-      if (freshUsers) users = freshUsers;
-    }
-
-    let user = users.find(u => u.googleId === profile.sub);
+    let user = await findUser({ googleId: profile.sub });
 
     if (!user) {
-      user = users.find(u => (u.email || '').toLowerCase().trim() === cleanEmail);
+      user = await findUserByEmail(cleanEmail);
       if (user) {
         user.googleId = profile.sub;
         user.authProvider = user.authProvider || 'google';
@@ -762,12 +945,10 @@ const store = {
         emailVerified: true,
         createdAt: new Date().toISOString()
       };
-      users.push(user);
     }
 
-    await db.saveData('users', users);
     const refreshToken = await issueRefreshSession(user);
-    await db.saveData('users', users);
+    await persistUser(user);
     if (isNewUser) sendWelcomeEmail(user).catch(() => {});
     return buildAuthResponse(user, refreshToken);
   },
@@ -775,19 +956,15 @@ const store = {
   async loginUser(email, password) {
     const cleanEmail = (email || '').trim().toLowerCase();
     const cleanPassword = String(password || '');
-    if (this.dbConnected) {
-      const freshUsers = await db.loadData('users');
-      if (freshUsers) users = freshUsers;
-    }
-    const user = users.find(u => (u.email || '').trim().toLowerCase() === cleanEmail);
+    const user = await findUserByEmail(cleanEmail);
     if (!user) return { error: 'Invalid email or password' };
     const passwordOk = await verifyPassword(user, cleanPassword);
     if (!passwordOk) return { error: 'Invalid email or password' };
     if (await ensureUserPasswordHash(user)) {
-      await db.saveData('users', users);
+      await persistUser(user);
     }
     const refreshToken = await issueRefreshSession(user);
-    await db.saveData('users', users);
+    await persistUser(user);
 
     return buildAuthResponse(user, refreshToken);
   },
@@ -796,17 +973,7 @@ const store = {
     // Try JWT first. Legacy HMAC tokens are accepted temporarily for active sessions.
     const userId = verifyJwtToken(token, 'access') || verifyLegacyToken(token);
     if (userId) {
-      let user = users.find(u => u.id === userId);
-      
-      // SERVERLESS STALE-MEMORY FIX: If user not in RAM, they might have been created/updated 
-      // on a different lambda instance. Reload users from DB to be absolutely sure!
-      if (!user && this.dbConnected) {
-        const freshUsers = await db.loadData('users');
-        if (freshUsers) {
-          users = freshUsers; // Sync RAM
-          user = users.find(u => u.id === userId);
-        }
-      }
+      const user = await findUser({ id: userId });
 
       if (user) {
         return safeUser(user);
@@ -825,19 +992,14 @@ const store = {
       return { error: 'Invalid refresh token' };
     }
 
-    if (this.dbConnected) {
-      const freshUsers = await db.loadData('users');
-      if (freshUsers) users = freshUsers;
-    }
-
-    const user = users.find(u => u.id === payload.sub);
+    const user = await findUser({ id: payload.sub });
     if (!user) return { error: 'User not found' };
 
     pruneRefreshSessions(user);
     const tokenHash = hashRefreshToken(refreshToken);
     const session = getRefreshSessions(user).find(entry => entry.id === payload.sid && entry.tokenHash === tokenHash);
     if (!session) {
-      await db.saveData('users', users);
+      await persistUser(user);
       return { error: 'Refresh session expired. Please login again.' };
     }
 
@@ -845,7 +1007,7 @@ const store = {
     user.refreshSessions = getRefreshSessions(user).filter(entry => entry.id !== session.id);
     const replacement = getRefreshSessions(user).find(entry => entry.tokenHash === hashRefreshToken(rotatedRefreshToken));
     if (replacement) replacement.lastUsedAt = new Date().toISOString();
-    await db.saveData('users', users);
+    await persistUser(user);
 
     return buildAuthResponse(user, rotatedRefreshToken);
   },
@@ -856,16 +1018,11 @@ const store = {
     const payload = decodeJwt(refreshToken);
     if (!payload?.sub) return { success: true };
 
-    if (this.dbConnected) {
-      const freshUsers = await db.loadData('users');
-      if (freshUsers) users = freshUsers;
-    }
-
-    const user = users.find(u => u.id === payload.sub);
+    const user = await findUser({ id: payload.sub });
     if (!user) return { success: true };
     pruneRefreshSessions(user);
     await revokeRefreshSession(user, refreshToken);
-    await db.saveData('users', users);
+    await persistUser(user);
     return { success: true };
   },
 
@@ -1046,7 +1203,7 @@ const store = {
   },
 
   async addReview(userId, productId, data) {
-    const user = users.find(entry => entry.id === userId);
+    const user = await findUser({ id: userId });
     if (!user) return { error: 'User not found' };
 
     const product = products.find(entry => entry.id === productId);
@@ -1242,7 +1399,9 @@ const store = {
         quantity, subtotal: product.price * quantity
       });
     }
+    touchCartActivity(userId);
     await db.saveData('carts', carts);
+    await db.saveData('cartActivity', cartActivity);
     return this.getCart(userId);
   },
 
@@ -1255,19 +1414,26 @@ const store = {
     if (product && product.stock < quantity) return { error: 'Insufficient stock' };
     item.quantity = quantity;
     item.subtotal = item.price * quantity;
+    touchCartActivity(userId);
     await db.saveData('carts', carts);
+    await db.saveData('cartActivity', cartActivity);
     return this.getCart(userId);
   },
 
   async removeCartItem(userId, cartItemId) {
     if (carts[userId]) carts[userId] = carts[userId].filter(i => i.cartItemId !== cartItemId);
+    if (hasActiveCart(userId)) touchCartActivity(userId);
+    else clearCartActivity(userId);
     await db.saveData('carts', carts);
+    await db.saveData('cartActivity', cartActivity);
     return this.getCart(userId);
   },
 
   async clearCart(userId) {
     carts[userId] = [];
+    clearCartActivity(userId);
     await db.saveData('carts', carts);
+    await db.saveData('cartActivity', cartActivity);
     return this.getCart(userId);
   },
 
@@ -1314,12 +1480,13 @@ const store = {
     };
 
     // Record coupon usage
-    if (couponCode) this.recordCouponUsage(couponCode, userId);
+    if (couponCode) await this.recordCouponUsage(couponCode, userId);
 
-    orders.push(order);
     carts[userId] = [];
-    await db.saveData('orders', orders);
+    clearCartActivity(userId);
+    await persistOrder(order);
     await db.saveData('carts', carts);
+    await db.saveData('cartActivity', cartActivity);
     await db.saveData('products', products);
 
     // Notify admin
@@ -1332,7 +1499,7 @@ const store = {
     });
 
     // Send Email Notification to Customer
-    const user = users.find(u => u.id === userId);
+    const user = await findUser({ id: userId });
     const resolvedEmail = user ? user.email : customerInfo.email || `${name.replace(/\s+/g,'').toLowerCase()}@mock.com`;
     await this.sendEmailNotification(resolvedEmail, order);
 
@@ -1432,7 +1599,7 @@ const store = {
       }
 
       // Find ALL admins and notify them
-      const admins = users.filter(u => u.role === 'admin');
+      const admins = await findUsers({ role: 'admin' });
       const adminEmails = admins.length > 0 ? admins.map(u => u.email) : [replyTo];
 
       for (const adminMail of adminEmails) {
@@ -1531,7 +1698,7 @@ const store = {
       }
 
       // Find ALL admins and notify them
-      const admins = users.filter(u => u.role === 'admin');
+      const admins = await findUsers({ role: 'admin' });
       const adminEmails = admins.length > 0 ? admins.map(u => u.email) : [replyTo];
 
       for (const adminMail of adminEmails) {
@@ -1553,8 +1720,8 @@ const store = {
     }
   },
 
-  getOrders(userId) {
-    const list = userId ? orders.filter(o => o.userId === userId) : orders;
+  async getOrders(userId) {
+    const list = await findOrders(userId ? { userId } : {});
     return list.map(o => ({
       ...o,
       cancelDeadline: getCancelDeadline(o).toISOString(),
@@ -1562,21 +1729,12 @@ const store = {
     }));
   },
 
-  getAllOrders() { return orders; },
-
-  getCustomers() {
-    return users.map(u => ({
-      id: u.id,
-      name: u.name,
-      email: u.email,
-      phone: u.phone,
-      role: u.role,
-      createdAt: u.createdAt
-    }));
+  async getAllOrders() {
+    return findOrders({});
   },
 
-  getOrderById(orderId) {
-    const order = orders.find(o => o.orderId === orderId) || null;
+  async getOrderById(orderId) {
+    const order = await findOrder({ orderId });
     if (!order) return null;
     return {
       ...order,
@@ -1592,7 +1750,7 @@ const store = {
   },
 
   async cancelOrder(orderId, userId) {
-    const order = orders.find(o => o.orderId === orderId);
+    const order = await findOrder({ orderId });
     if (!order) return { error: 'Order not found' };
     if (order.userId !== userId) return { error: 'You can only cancel your own order' };
     if (!this.canCancelOrder(order)) return { error: 'Cancellation is only available within 2 hours of placing the order and before dispatch' };
@@ -1603,7 +1761,7 @@ const store = {
     order.statusHistory = order.statusHistory || [];
     order.statusHistory.push({ status: 'cancelled', at: order.cancelledAt, by: 'customer' });
     restoreOrderStock(order);
-    await db.saveData('orders', orders);
+    await persistOrder(order);
     await db.saveData('products', products);
 
     this.addNotification({
@@ -1614,7 +1772,7 @@ const store = {
       data: { customerName: order.customer.name, total: order.totalPrice }
     });
 
-    const user = users.find(u => u.id === userId);
+    const user = await findUser({ id: userId });
     const resolvedEmail = user ? user.email : order.customer.email || `${order.customer.name.replace(/\s+/g,'').toLowerCase()}@mock.com`;
     await this.sendCancellationEmail(resolvedEmail, order);
 
@@ -1627,7 +1785,7 @@ const store = {
 
   async updateOrderStatus(orderId, status) {
     if (!ORDER_STATUSES.includes(status)) return { error: 'Invalid order status' };
-    const order = orders.find(o => o.orderId === orderId);
+    const order = await findOrder({ orderId });
     if (!order) return { error: 'Order not found' };
     const previousStatus = order.status;
 
@@ -1637,7 +1795,7 @@ const store = {
         order.cancelledAt = order.cancelledAt || new Date().toISOString();
         order.cancelledBy = order.cancelledBy || 'admin';
         
-        const user = users.find(u => u.id === order.userId);
+        const user = await findUser({ id: order.userId });
         const resolvedEmail = user ? user.email : order.customer.email || `${order.customer.name.replace(/\s+/g,'').toLowerCase()}@mock.com`;
         await this.sendCancellationEmail(resolvedEmail, order);
       }
@@ -1650,12 +1808,12 @@ const store = {
     order.status = status;
     order.statusHistory = order.statusHistory || [];
     order.statusHistory.push({ status, at: new Date().toISOString(), by: 'admin' });
-    await db.saveData('orders', orders); // Explicitly lock update into MongoDB!
+    await persistOrder(order);
     await db.saveData('products', products);
 
     // Send delivery email when order is delivered
     if (status === 'delivered') {
-      const user = users.find(u => u.id === order.userId);
+      const user = await findUser({ id: order.userId });
       if (user?.email) sendDeliveryEmail(order, user.email).catch(() => {});
     }
 
@@ -1688,8 +1846,12 @@ const store = {
   },
 
   // ══════ DASHBOARD STATS ══════
-  getDashboardStats() {
-    const activeOrders = orders.filter(o => o.status !== 'cancelled');
+  async getDashboardStats() {
+    const orderList = await findOrders({});
+    const customerCount = isMongoReady()
+      ? await db.countData('users', { role: 'customer' })
+      : users.filter(u => u.role === 'customer').length;
+    const activeOrders = orderList.filter(o => o.status !== 'cancelled');
     const totalRevenue = activeOrders.reduce((s, o) => s + o.totalPrice, 0);
     const todayOrders = activeOrders.filter(o => {
       const d = new Date(o.placedAt).toDateString();
@@ -1698,9 +1860,9 @@ const store = {
     const reviewAnalytics = this.getReviewAnalytics();
     return {
       totalProducts: products.length,
-      totalOrders: orders.length,
+      totalOrders: orderList.length,
       totalRevenue,
-      totalCustomers: users.filter(u => u.role === 'customer').length,
+      totalCustomers: customerCount || 0,
       pendingReviews: reviews.filter(review => review.status === 'pending').length,
       rejectedReviews: reviews.filter(review => review.status === 'rejected').length,
       todayOrders: todayOrders.length,
@@ -1726,8 +1888,8 @@ const store = {
     const fromAddr = `"Green Valley Farm" <${verifiedSender}>`;
 
     // Get all customer emails (non-admin, verified users)
-    const customerEmails = users
-      .filter(u => u.role !== 'admin' && u.email && u.email.includes('@'))
+    const customerEmails = (await findUsers({ role: 'customer' }))
+      .filter(u => u.email && u.email.includes('@'))
       .map(u => u.email);
 
     if (customerEmails.length === 0) {
@@ -1740,7 +1902,7 @@ const store = {
 
     // ── Build active coupons section ──
     const now = new Date();
-    const activeCoupons = coupons.filter(c => c.active && (!c.expiresAt || new Date(c.expiresAt) > now) && (c.maxUses === 0 || c.usedCount < c.maxUses));
+    const activeCoupons = (await findCoupons({ active: true })).filter(c => (!c.expiresAt || new Date(c.expiresAt) > now) && (c.maxUses === 0 || c.usedCount < c.maxUses));
     let couponSection = '';
     if (activeCoupons.length > 0) {
       const couponCards = activeCoupons.map(c => {
@@ -1816,9 +1978,8 @@ const store = {
   },
 
   // ══════ CUSTOMER MANAGEMENT ══════
-  getCustomers() {
-    return users
-      .filter(u => u.role !== 'admin')
+  async getCustomers() {
+    return (await findUsers({ role: 'customer' }))
       .map(u => ({
         id: u.id || u._id,
         name: u.name,
@@ -1829,9 +1990,9 @@ const store = {
   },
 
   // ══════ COUPON MANAGEMENT ══════
-  getCoupons() { return coupons; },
+  async getCoupons() { return findCoupons({}); },
 
-  createCoupon(data) {
+  async createCoupon(data) {
     const coupon = {
       id: `coupon-${uuidv4().slice(0, 8)}`,
       code: (data.code || '').trim().toUpperCase(),
@@ -1847,14 +2008,13 @@ const store = {
       createdAt: new Date().toISOString()
     };
     if (!coupon.code) return { error: 'Coupon code is required' };
-    if (coupons.find(c => c.code === coupon.code)) return { error: 'Coupon code already exists' };
-    coupons.push(coupon);
-    db.saveData('coupons', coupons);
+    if (await findCoupon({ code: coupon.code })) return { error: 'Coupon code already exists' };
+    await persistCoupon(coupon);
     return { coupon };
   },
 
-  updateCoupon(id, data) {
-    const coupon = coupons.find(c => c.id === id || String(c._id) === id);
+  async updateCoupon(id, data) {
+    const coupon = await findCouponById(id);
     if (!coupon) return { error: 'Coupon not found' };
     if (data.code) coupon.code = data.code.trim().toUpperCase();
     if (data.type) coupon.type = data.type;
@@ -1864,20 +2024,25 @@ const store = {
     if (data.perUserLimit !== undefined) coupon.perUserLimit = parseInt(data.perUserLimit);
     if (data.expiresAt !== undefined) coupon.expiresAt = data.expiresAt;
     if (data.active !== undefined) coupon.active = data.active;
-    db.saveData('coupons', coupons);
+    await persistCoupon(coupon);
     return { coupon };
   },
 
-  deleteCoupon(id) {
-    const idx = coupons.findIndex(c => c.id === id || String(c._id) === id);
-    if (idx === -1) return { error: 'Coupon not found' };
-    coupons.splice(idx, 1);
-    db.saveData('coupons', coupons);
+  async deleteCoupon(id) {
+    const coupon = await findCouponById(id);
+    if (!coupon) return { error: 'Coupon not found' };
+    if (isMongoReady()) {
+      await db.deleteOneData('coupons', coupon._id ? { _id: coupon._id } : { id: coupon.id });
+    } else {
+      const idx = coupons.findIndex(c => c.id === id || String(c._id) === id);
+      if (idx !== -1) coupons.splice(idx, 1);
+      await db.saveData('coupons', coupons);
+    }
     return { success: true };
   },
 
-  validateCoupon(code, userId) {
-    const coupon = coupons.find(c => c.code === code.trim().toUpperCase() && c.active);
+  async validateCoupon(code, userId) {
+    const coupon = await findCoupon({ code: code.trim().toUpperCase(), active: true });
     if (!coupon) return { error: 'Invalid or inactive coupon code' };
     if (coupon.expiresAt && new Date(coupon.expiresAt) < new Date()) return { error: 'This coupon has expired' };
     if (coupon.maxUses > 0 && coupon.usedCount >= coupon.maxUses) return { error: 'Coupon usage limit reached' };
@@ -1885,12 +2050,94 @@ const store = {
     return { coupon: { code: coupon.code, type: coupon.type, value: coupon.value, minOrderAmount: coupon.minOrderAmount } };
   },
 
-  recordCouponUsage(code, userId) {
-    const coupon = coupons.find(c => c.code === code.trim().toUpperCase());
+  async recordCouponUsage(code, userId) {
+    const coupon = await findCoupon({ code: code.trim().toUpperCase() });
     if (!coupon) return;
     coupon.usedCount++;
     if (userId && !coupon.usedBy.includes(userId)) coupon.usedBy.push(userId);
-    db.saveData('coupons', coupons);
+    await persistCoupon(coupon);
+  },
+
+  async processAbandonedCarts(options = {}) {
+    const dryRun = options.dryRun === true || String(options.dryRun || '') === 'true';
+    const limit = Math.max(1, Number(options.limit) || 50);
+    const cutoffMs = Math.max(1, Number(options.hours) || ABANDONED_CART_HOURS) * 60 * 60 * 1000;
+    const now = Date.now();
+    const results = [];
+
+    for (const [userId, items] of Object.entries(carts)) {
+      if (results.length >= limit) break;
+      if (!Array.isArray(items) || items.length === 0 || userId === 'guest') continue;
+
+      const activity = cartActivity[userId];
+      if (!activity?.updatedAt) continue;
+
+      const updatedAtMs = Date.parse(activity.updatedAt);
+      if (Number.isNaN(updatedAtMs) || now - updatedAtMs < cutoffMs) continue;
+      if (activity.reminderSentAt && activity.reminderCartUpdatedAt === activity.updatedAt) continue;
+
+      const user = await findUser({ id: userId });
+      if (user?.role === 'admin') continue;
+      if (!user) continue;
+
+      const cart = this.getCart(userId);
+      const couponCode = activity.reminderCouponCode || buildAbandonedCartCouponCode(userId);
+      let coupon = await findCoupon({ code: couponCode });
+
+      if (!coupon && dryRun) {
+        coupon = {
+          code: couponCode,
+          type: 'percentage',
+          value: ABANDONED_CART_COUPON_PERCENT
+        };
+      }
+
+      if (!coupon) {
+        const expiresAt = new Date(now + ABANDONED_CART_COUPON_DAYS * 24 * 60 * 60 * 1000).toISOString();
+        const created = await this.createCoupon({
+          code: couponCode,
+          type: 'percentage',
+          value: ABANDONED_CART_COUPON_PERCENT,
+          minOrderAmount: 0,
+          maxUses: 1,
+          perUserLimit: 1,
+          expiresAt,
+          active: true
+        });
+        if (created.error) continue;
+        coupon = created.coupon;
+      }
+
+      if (!dryRun) {
+        await sendAbandonedCartEmail(user, cart, coupon);
+        cartActivity[userId] = {
+          ...activity,
+          reminderSentAt: new Date().toISOString(),
+          reminderCartUpdatedAt: activity.updatedAt,
+          reminderCouponCode: coupon.code
+        };
+        await db.saveData('cartActivity', cartActivity);
+        await persistCoupon(coupon);
+      }
+
+      results.push({
+        userId,
+        email: user.email,
+        items: cart.totalItems,
+        total: cart.totalPrice,
+        couponCode: coupon.code,
+        dryRun
+      });
+    }
+
+    return {
+      success: true,
+      dryRun,
+      checkedCarts: Object.keys(carts).length,
+      eligibleCarts: results.length,
+      sentCount: dryRun ? 0 : results.length,
+      results
+    };
   }
 };
 

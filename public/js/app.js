@@ -15,6 +15,7 @@ const App = {
   searchTimeout: null,
   googleClientId: '',
   googleButtonsRendered: false,
+  appInstallPrompt: null,
   // Delivery & Coupon state
   deliveryMap: null,
   deliveryMarker: null,
@@ -28,12 +29,82 @@ const App = {
   async init() {
     this.runPreloader();
     this.bindEvents();
+    this.initPwa();
     document.body.dataset.page = this.currentPage;
     await this.checkAuth();
     await this.loadProducts();
     await this.openProductFromLocation();
     await this.initGoogleAuth();
     this.updateCartBadge();
+  },
+
+  initPwa() {
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/service-worker.js', { scope: '/' }).catch(() => {});
+      });
+    }
+
+    window.addEventListener('beforeinstallprompt', event => {
+      event.preventDefault();
+      this.appInstallPrompt = event;
+      this.setInstallButtonsVisible(true);
+    });
+
+    window.addEventListener('appinstalled', () => {
+      this.appInstallPrompt = null;
+      this.setInstallButtonsVisible(false);
+      this.toast('App installed successfully!', 'success');
+    });
+
+    if (window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone) {
+      this.setInstallButtonsVisible(false);
+    }
+  },
+
+  setInstallButtonsVisible(visible) {
+    ['pwa-install-btn', 'pwa-install-floating'].forEach(id => {
+      const btn = document.getElementById(id);
+      if (btn) btn.hidden = !visible;
+    });
+  },
+
+  async installPwa() {
+    if (!this.appInstallPrompt) {
+      this.toast('Use your browser menu to add Green Valley to your home screen.', 'success');
+      return;
+    }
+
+    const promptEvent = this.appInstallPrompt;
+    this.appInstallPrompt = null;
+    this.setInstallButtonsVisible(false);
+    promptEvent.prompt();
+    await promptEvent.userChoice.catch(() => null);
+  },
+
+  toWebpUrl(url) {
+    const cleanUrl = String(url || '');
+    if (!cleanUrl || cleanUrl.startsWith('data:') || /^https?:\/\//i.test(cleanUrl)) return '';
+    return cleanUrl.replace(/\.(jpe?g|png)(\?.*)?$/i, '.webp$2');
+  },
+
+  productImageMarkup(product, index = 0) {
+    if (!product.imageUrl) return `<span>${product.emoji}</span>`;
+    const webpUrl = this.toWebpUrl(product.imageUrl);
+    const loading = index < 2 ? 'eager' : 'lazy';
+    const fetchPriority = index < 2 ? ' fetchpriority="high"' : '';
+    return `<picture class="product-card-picture">
+      ${webpUrl ? `<source srcset="${webpUrl}" type="image/webp">` : ''}
+      <img src="${product.imageUrl}" alt="${product.name}" loading="${loading}" decoding="async"${fetchPriority}>
+    </picture>`;
+  },
+
+  imagePicture(url, alt, className = '', attrs = 'loading="lazy"') {
+    const webpUrl = this.toWebpUrl(url);
+    return `<picture>
+      ${webpUrl ? `<source srcset="${webpUrl}" type="image/webp">` : ''}
+      <img src="${url}" alt="${alt}"${className ? ` class="${className}"` : ''} ${attrs} decoding="async">
+    </picture>`;
   },
 
   runPreloader() {
@@ -53,8 +124,8 @@ const App = {
       setTimeout(() => {
         preloader.remove();
         this.onPreloaderDone();
-      }, 600);
-    }, 2200);
+      }, 300);
+    }, 800);
   },
 
   onPreloaderDone() {
@@ -508,9 +579,9 @@ const App = {
       if (p.stock <= 0) { sc = 'out-of-stock'; st = 'Out of Stock'; }
       else if (p.stock <= 20) { sc = 'low-stock'; st = `Only ${p.stock} left`; }
       return `<div class="product-card" style="animation:fadeInUp 0.4s ease ${i*0.05}s both">
-        <div class="product-card-img ${p.category}" style="${p.imageUrl ? `background-image: url('${p.imageUrl}'); background-size: cover; background-position: center; position: relative; overflow: hidden;` : ''}">
-          <div style="${p.imageUrl ? 'position: absolute; inset: 0; background: linear-gradient(0deg, rgba(0,0,0,0.6) 0%, transparent 40%);' : ''}"></div>
-          ${!p.imageUrl ? `<span>${p.emoji}</span>` : ''}
+        <div class="product-card-img ${p.category}">
+          ${this.productImageMarkup(p, i)}
+          ${p.imageUrl ? '<div class="product-card-img-overlay"></div>' : ''}
           <span class="stock-badge ${sc}">${st}</span>
         </div>
         <div class="product-card-body">
@@ -547,7 +618,7 @@ const App = {
       if (!p) return;
       this.selectedProductId = p.id;
       history.replaceState({}, '', `/products/${p.slug || p.id}`);
-      document.getElementById('pd-img').style.backgroundImage = `url('${p.imageUrl}')`;
+      document.getElementById('pd-img').style.backgroundImage = `url('${this.toWebpUrl(p.imageUrl) || p.imageUrl}')`;
       document.getElementById('pd-name').textContent = p.name;
       document.getElementById('pd-share-link').value = `${window.location.origin}/products/${p.slug || p.id}`;
       document.getElementById('pd-tags').innerHTML = p.tags.map(t=>`<span class="product-tag">${t}</span>`).join('');
@@ -1145,35 +1216,35 @@ const App = {
         <h3 style="margin-top:40px; margin-bottom:20px; font-family:'Playfair Display', serif; font-size:24px;">Life at <span class="text-accent">Our Farm</span></h3>
         <div class="farm-photo-grid">
           <div class="farm-photo-item farm-photo-large">
-            <img src="/myImage/InShot_20260407_084631044.jpg.jpeg" alt="Panoramic green valley view of our farm" loading="lazy">
+            ${this.imagePicture('/myImage/InShot_20260407_084631044.jpg.jpeg', 'Panoramic green valley view of our farm')}
             <div class="farm-photo-caption">Our Farm's Green Valley</div>
           </div>
           <div class="farm-photo-item">
-            <img src="/myImage/InShot_20260407_084700576.jpg.jpeg" alt="Baby chick held gently in hand" loading="lazy">
+            ${this.imagePicture('/myImage/InShot_20260407_084700576.jpg.jpeg', 'Baby chick held gently in hand')}
             <div class="farm-photo-caption">Raised with Care</div>
           </div>
           <div class="farm-photo-item">
-            <img src="/myImage/InShot_20260407_084008098.jpg.jpeg" alt="Healthy baby chick close-up" loading="lazy">
+            ${this.imagePicture('/myImage/InShot_20260407_084008098.jpg.jpeg', 'Healthy baby chick close-up')}
             <div class="farm-photo-caption">Healthy Chicks</div>
           </div>
           <div class="farm-photo-item farm-photo-wide">
-            <img src="/myImage/InShot_20260407_084027529.jpg.jpeg" alt="Inside our warm poultry house" loading="lazy">
+            ${this.imagePicture('/myImage/InShot_20260407_084027529.jpg.jpeg', 'Inside our warm poultry house')}
             <div class="farm-photo-caption">Our Warm Poultry House</div>
           </div>
           <div class="farm-photo-item">
-            <img src="/myImage/InShot_20260407_084730614.jpg.jpeg" alt="Chicks feeding naturally" loading="lazy">
+            ${this.imagePicture('/myImage/InShot_20260407_084730614.jpg.jpeg', 'Chicks feeding naturally')}
             <div class="farm-photo-caption">Natural Feeding</div>
           </div>
           <div class="farm-photo-item">
-            <img src="/myImage/InShot_20260407_084259574.jpg.jpeg" alt="Chicks under heat lamp" loading="lazy">
+            ${this.imagePicture('/myImage/InShot_20260407_084259574.jpg.jpeg', 'Chicks under heat lamp')}
             <div class="farm-photo-caption">Brooding Area</div>
           </div>
           <div class="farm-photo-item">
-            <img src="/myImage/InShot_20260407_084823526.jpg.jpeg" alt="Farm poultry house exterior" loading="lazy">
+            ${this.imagePicture('/myImage/InShot_20260407_084823526.jpg.jpeg', 'Farm poultry house exterior')}
             <div class="farm-photo-caption">Our Farm House</div>
           </div>
           <div class="farm-photo-item">
-            <img src="/myImage/InShot_20260407_085003082.jpg.jpeg" alt="Farm equipment and supplies collage" loading="lazy">
+            ${this.imagePicture('/myImage/InShot_20260407_085003082.jpg.jpeg', 'Farm equipment and supplies collage')}
             <div class="farm-photo-caption">Quality Equipment</div>
           </div>
         </div>

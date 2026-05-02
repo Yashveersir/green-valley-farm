@@ -3,8 +3,8 @@ const router = express.Router();
 const store = require('../models/store');
 
 // GET /api/admin/dashboard
-router.get('/dashboard', (req, res) => {
-  res.json({ success: true, stats: store.getDashboardStats(), reviewAnalytics: store.getReviewAnalytics() });
+router.get('/dashboard', async (req, res) => {
+  res.json({ success: true, stats: await store.getDashboardStats(), reviewAnalytics: store.getReviewAnalytics() });
 });
 
 // GET /api/admin/notifications
@@ -25,8 +25,8 @@ router.post('/notifications/read-all', (req, res) => {
 });
 
 // GET /api/admin/orders
-router.get('/orders', (req, res) => {
-  res.json({ success: true, orders: store.getAllOrders() });
+router.get('/orders', async (req, res) => {
+  res.json({ success: true, orders: await store.getAllOrders() });
 });
 
 // GET /api/admin/reviews
@@ -60,34 +60,34 @@ router.put('/reviews/:reviewId/status', async (req, res) => {
 });
 
 // ── Customer Management ──
-router.get('/customers', (req, res) => {
-  res.json({ success: true, customers: store.getCustomers() });
+router.get('/customers', async (req, res) => {
+  res.json({ success: true, customers: await store.getCustomers() });
 });
 
 // ── Coupon Management ──
 
 // GET /api/admin/coupons
-router.get('/coupons', (req, res) => {
-  res.json({ success: true, coupons: store.getCoupons() });
+router.get('/coupons', async (req, res) => {
+  res.json({ success: true, coupons: await store.getCoupons() });
 });
 
 // POST /api/admin/coupons
-router.post('/coupons', (req, res) => {
-  const result = store.createCoupon(req.body);
+router.post('/coupons', async (req, res) => {
+  const result = await store.createCoupon(req.body);
   if (result.error) return res.status(400).json({ success: false, error: result.error });
   res.json({ success: true, coupon: result.coupon });
 });
 
 // PUT /api/admin/coupons/:id
-router.put('/coupons/:id', (req, res) => {
-  const result = store.updateCoupon(req.params.id, req.body);
+router.put('/coupons/:id', async (req, res) => {
+  const result = await store.updateCoupon(req.params.id, req.body);
   if (result.error) return res.status(result.error === 'Coupon not found' ? 404 : 400).json({ success: false, error: result.error });
   res.json({ success: true, coupon: result.coupon });
 });
 
 // DELETE /api/admin/coupons/:id
-router.delete('/coupons/:id', (req, res) => {
-  const result = store.deleteCoupon(req.params.id);
+router.delete('/coupons/:id', async (req, res) => {
+  const result = await store.deleteCoupon(req.params.id);
   if (result.error) return res.status(404).json({ success: false, error: result.error });
   res.json({ success: true });
 });

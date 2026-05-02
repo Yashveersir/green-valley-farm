@@ -166,6 +166,16 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(reviewPayloadGuard);
 
+app.get('/service-worker.js', (req, res) => {
+  res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.type('application/javascript').sendFile(path.join(__dirname, 'public', 'service-worker.js'));
+});
+
+app.get('/manifest.json', (req, res) => {
+  res.set('Cache-Control', 'no-cache');
+  res.type('application/manifest+json').sendFile(path.join(__dirname, 'public', 'manifest.json'));
+});
+
 // ── Static files with caching headers ──
 app.use(express.static(path.join(__dirname, 'public'), {
   maxAge: process.env.NODE_ENV === 'production' ? '7d' : 0,
@@ -225,14 +235,42 @@ app.use('/api/orders', ordersRouter);
 app.use('/api/payments', paymentLimiter, paymentsRouter);
 
 // Public coupon validation (authenticated users)
-app.get('/api/coupons/validate', (req, res) => {
+app.get('/api/coupons/validate', async (req, res) => {
   const code = req.query.code;
   if (!code) return res.status(400).json({ error: 'Coupon code required' });
   const userId = req.user?.id || req.user?._id;
-  const result = store.validateCoupon(code, userId);
+  const result = await store.validateCoupon(code, userId);
   if (result.error) return res.json({ error: result.error });
   res.json({ success: true, coupon: result.coupon });
 });
+
+async function runAbandonedCartJob(req, res) {
+  const cronSecret = process.env.CRON_SECRET || '';
+  const authHeader = req.headers.authorization || '';
+
+  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    return res.status(401).json({ success: false, error: 'Unauthorized job request' });
+  }
+
+  if (process.env.NODE_ENV === 'production' && !cronSecret) {
+    return res.status(503).json({ success: false, error: 'CRON_SECRET is required in production' });
+  }
+
+  try {
+    const result = await store.processAbandonedCarts({
+      dryRun: req.query.dryRun === 'true',
+      hours: req.query.hours,
+      limit: req.query.limit
+    });
+    res.json(result);
+  } catch (err) {
+    console.error('[Abandoned Cart Job Error]:', err.message);
+    res.status(500).json({ success: false, error: 'Abandoned cart job failed' });
+  }
+}
+
+app.get('/api/jobs/abandoned-carts', runAbandonedCartJob);
+app.post('/api/jobs/abandoned-carts', runAbandonedCartJob);
 
 app.use('/api/admin', adminOnly, adminRouter);
 

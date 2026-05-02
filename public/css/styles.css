@@ -223,6 +223,12 @@ img { max-width: 100%; display: block; }
   inset: 0;
   overflow: hidden;
 }
+.hero-bg picture,
+.about-hero picture {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
 .hero-bg::after {
   content: '';
   position: absolute;
@@ -423,11 +429,31 @@ img { max-width: 100%; display: block; }
   font-size: 64px;
   position: relative; overflow: hidden;
 }
+.product-card-picture,
+.product-card-picture img {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.product-card-picture img {
+  object-fit: cover;
+  transition: transform 0.5s ease;
+}
+.product-card:hover .product-card-picture img {
+  transform: scale(1.06);
+}
+.product-card-img-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(0deg, rgba(0,0,0,0.58) 0%, transparent 42%);
+  pointer-events: none;
+}
 .product-card-img.live-birds { background: linear-gradient(135deg, #1a3a28, #2d5016); }
 .product-card-img.eggs { background: linear-gradient(135deg, #2a2818, #4a4020); }
 .product-card-img.cuts { background: linear-gradient(135deg, #2a1818, #4a2020); }
 .product-card-img .stock-badge {
   position: absolute; top: 12px; right: 12px;
+  z-index: 2;
   padding: 4px 12px; border-radius: var(--radius-full);
   font-size: 11px; font-weight: 600;
   text-transform: uppercase; letter-spacing: 0.5px;
@@ -704,7 +730,7 @@ img { max-width: 100%; display: block; }
 .about-hero {
   position: relative; height: 300px; overflow: hidden;
 }
-.about-img { width: 100%; height: 100%; object-fit: cover; }
+.about-img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .about-overlay { position: absolute; inset: 0; background: rgba(10,26,16,0.8); }
 .about-hero-text { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 2; }
 .about-hero-text h2 { font-family: var(--font-display); font-size: 48px; }
@@ -972,9 +998,13 @@ img { max-width: 100%; display: block; }
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
   z-index: 2;
 }
+.farm-photo-item picture,
 .farm-photo-item img {
   width: 100%;
   height: 100%;
+  display: block;
+}
+.farm-photo-item img {
   object-fit: cover;
   transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -1229,7 +1259,7 @@ img { max-width: 100%; display: block; }
   position: fixed; inset: 0; z-index: 99999;
   background: linear-gradient(145deg, #0a1a10 0%, #112a1a 50%, #0d2818 100%);
   display: flex; align-items: center; justify-content: center;
-  transition: opacity 0.6s ease, visibility 0.6s ease;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
 }
 .gvf-preloader.fade-out { opacity: 0; visibility: hidden; pointer-events: none; }
 .preloader-content { text-align: center; animation: preloaderFadeIn 0.6s ease-out; }
@@ -1262,7 +1292,7 @@ img { max-width: 100%; display: block; }
 }
 .preloader-bar-fill {
   height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--primary-lighter));
-  border-radius: 4px; animation: preloaderProgress 2s ease-in-out forwards;
+  border-radius: 4px; animation: preloaderProgress 0.8s ease-in-out forwards;
 }
 .preloader-tagline {
   font-size: 13px; color: var(--text-muted);
