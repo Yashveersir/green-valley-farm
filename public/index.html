@@ -47,6 +47,8 @@
   <link rel="apple-touch-icon" href="/images/logo.png">
   <link rel="stylesheet" href="/css/styles.css">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
   <script defer src="/_vercel/insights/script.js"></script>
 
@@ -97,6 +99,25 @@
   </script>
 </head>
 <body>
+  <!-- PRELOADER ANIMATION -->
+  <div id="gvf-preloader" class="gvf-preloader">
+    <div class="preloader-content">
+      <div class="preloader-logo-wrap">
+        <img src="/images/logo.png" alt="Green Valley Farm" class="preloader-logo">
+        <div class="preloader-ring"></div>
+      </div>
+      <h2 class="preloader-title">Green Valley</h2>
+      <p class="preloader-sub">Poultry Farm</p>
+      <div class="preloader-bar"><div class="preloader-bar-fill"></div></div>
+      <p class="preloader-tagline">Farm-Fresh, Delivered with Care 🌿</p>
+    </div>
+  </div>
+
+  <!-- WHATSAPP FLOATING BUTTON -->
+  <a href="https://wa.me/919471800046?text=Hi%20Green%20Valley%20Farm!%20I%20need%20help%20with%20my%20order.%20Can%20you%20assist%20me%3F" target="_blank" rel="noopener" class="whatsapp-float" id="whatsapp-float" title="Chat with us on WhatsApp" style="display:none;">
+    <svg viewBox="0 0 32 32" width="32" height="32" fill="#fff"><path d="M16.004 0h-.008C7.174 0 0 7.176 0 16.004c0 3.5 1.129 6.744 3.047 9.381L1.054 31.2l6.025-1.936A15.905 15.905 0 0016.004 32C24.826 32 32 24.826 32 16.004 32 7.176 24.826 0 16.004 0zm9.32 22.608c-.39 1.1-2.288 2.1-3.15 2.16-.793.055-1.553.37-5.235-1.09-4.438-1.76-7.24-6.3-7.46-6.59-.22-.29-1.8-2.39-1.8-4.56s1.14-3.24 1.54-3.68c.4-.44.88-.55 1.17-.55.29 0 .59.003.85.015.27.013.64-.103.99.76.36.88 1.22 2.98 1.33 3.2.11.22.18.47.035.76-.145.29-.22.47-.44.72-.22.25-.46.56-.66.75-.22.21-.45.44-.19.86.26.42 1.15 1.9 2.47 3.08 1.7 1.52 3.13 1.99 3.57 2.21.44.22.69.18.95-.11.26-.29 1.1-1.28 1.39-1.72.29-.44.58-.37.98-.22.4.15 2.53 1.19 2.96 1.41.43.22.72.33.83.51.1.18.1 1.07-.29 2.1z"/></svg>
+  </a>
+
   <header class="header" id="main-header">
     <div class="header-inner">
       <a href="#" class="logo" onclick="App.navigate('home')">
@@ -199,6 +220,48 @@
             <div class="form-group"><label for="customer-phone">Phone</label><input type="tel" id="customer-phone" placeholder="+91 9471800046" required></div>
             <div class="form-group"><label for="customer-address">Address</label><textarea id="customer-address" rows="3" placeholder="Full delivery address" required></textarea></div>
           </div>
+
+          <!-- LOCATION MAP -->
+          <div class="form-section delivery-map-section">
+            <h3 class="form-section-title">📍 Pin Your Location</h3>
+            <div class="map-search-wrap">
+              <input type="text" id="map-search-input" placeholder="Search location..." onkeydown="if(event.key==='Enter'){event.preventDefault();App.searchMapLocation();}">
+              <button type="button" class="btn btn-sm btn-outline" onclick="App.searchMapLocation()">🔍 Search</button>
+              <button type="button" class="btn btn-sm btn-outline" onclick="App.useMyLocation()">📌 My Location</button>
+            </div>
+            <div id="delivery-map"></div>
+            <div class="delivery-charge-info" id="delivery-charge-info" style="display:none;">
+              <span id="delivery-distance-text">Distance: calculating...</span>
+              <span id="delivery-charge-text"></span>
+            </div>
+          </div>
+
+          <!-- TIME SLOT -->
+          <div class="form-section time-slot-section">
+            <h3 class="form-section-title">🕐 Preferred Delivery Time</h3>
+            <div class="time-slots" id="time-slots">
+              <button type="button" class="time-slot-btn" data-slot="morning" onclick="App.selectTimeSlot(this)">
+                <span class="slot-icon">🌅</span>Morning<span class="slot-time">6:00 - 10:00 AM</span>
+              </button>
+              <button type="button" class="time-slot-btn selected" data-slot="afternoon" onclick="App.selectTimeSlot(this)">
+                <span class="slot-icon">☀️</span>Afternoon<span class="slot-time">12:00 - 3:00 PM</span>
+              </button>
+              <button type="button" class="time-slot-btn" data-slot="evening" onclick="App.selectTimeSlot(this)">
+                <span class="slot-icon">🌆</span>Evening<span class="slot-time">5:00 - 8:00 PM</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- COUPON CODE -->
+          <div class="form-section coupon-section">
+            <h3 class="form-section-title">🎟️ Coupon Code</h3>
+            <div class="coupon-input-wrap" id="coupon-input-wrap">
+              <input type="text" id="coupon-code-input" placeholder="Enter coupon code" maxlength="20">
+              <button type="button" class="btn btn-sm btn-outline" onclick="App.applyCoupon()">Apply</button>
+            </div>
+            <div id="coupon-result"></div>
+          </div>
+
           <div class="form-section">
             <h3 class="form-section-title">💵 Payment Method</h3>
             <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:16px;">
@@ -236,7 +299,7 @@
     <div class="footer-inner">
       <div class="footer-brand"><span class="logo-icon">🐔</span><div><strong>Green Valley Poultry Farm</strong><p>Farm-Fresh Poultry, Delivered with Care</p></div></div>
       <div class="footer-links">
-        <div class="footer-col"><h4>Quick Links</h4><a href="#" onclick="App.navigate('home')">Shop</a><a href="#" onclick="App.navigate('about')">Our Farm</a><a href="#" onclick="App.navigate('orders')">My Orders</a><a href="/privacy.html">Privacy Policy</a><a href="/terms.html">Terms of Service</a><a href="/admin" target="_blank" style="color:var(--accent);">Admin Portal 🔒</a></div>
+        <div class="footer-col"><h4>Quick Links</h4><a href="#" onclick="App.navigate('home')">Shop</a><a href="#" onclick="App.navigate('about')">Our Farm</a><a href="#" onclick="App.navigate('orders')">My Orders</a><a href="/privacy.html">Privacy Policy</a><a href="/terms.html">Terms of Service</a></div>
         <div class="footer-col"><h4>Categories</h4><a href="#" onclick="App.browseCategory('live-birds', { direct: true }); return false;">Live Birds</a><a href="#" onclick="App.browseCategory('eggs', { direct: true }); return false;">Eggs</a><a href="#" onclick="App.browseCategory('cuts', { direct: true }); return false;">Cuts & Parts</a></div>
         <div class="footer-col"><h4>Contact</h4><p><a href="tel:9471800046" style="color:var(--text);text-decoration:none;">📞 +91 9471800046</a></p><p><a href="mailto:sales.greenvalleyfarm@gmail.com" style="color:var(--text);text-decoration:none;">📧 sales.greenvalleyfarm@gmail.com</a></p><p><a href="https://www.google.com/maps/place/Green+Valley+Poultry+Farm/@26.2929519,85.3947712,17z/data=!4m14!1m7!3m6!1s0x39ed1dd0ddeaf6e5:0xeb79e79b089a853f!2sGreen+Valley+Poultry+Farm!8m2!3d26.2929519!4d85.3947712!16s%2Fg%2F11sbq_4t46!3m5!1s0x39ed1dd0ddeaf6e5:0xeb79e79b089a853f!8m2!3d26.2929519!4d85.3947712!16s%2Fg%2F11sbq_4t46?entry=ttu&g_ep=EgoyMDI2MDQwMS4wIKXMDSoASAFQAw%3D%3D" target="_blank" style="color:var(--text);text-decoration:none;">📍 Tengrahan, Minapur, Muzaffarpur, Bihar - 843117</a></p></div>
         <div class="footer-col">

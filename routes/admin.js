@@ -59,4 +59,51 @@ router.put('/reviews/:reviewId/status', async (req, res) => {
   res.json({ success: true, review: result.review, summary: result.summary, analytics: result.analytics });
 });
 
+// ── Customer Management ──
+router.get('/customers', (req, res) => {
+  res.json({ success: true, customers: store.getCustomers() });
+});
+
+// ── Coupon Management ──
+
+// GET /api/admin/coupons
+router.get('/coupons', (req, res) => {
+  res.json({ success: true, coupons: store.getCoupons() });
+});
+
+// POST /api/admin/coupons
+router.post('/coupons', (req, res) => {
+  const result = store.createCoupon(req.body);
+  if (result.error) return res.status(400).json({ success: false, error: result.error });
+  res.json({ success: true, coupon: result.coupon });
+});
+
+// PUT /api/admin/coupons/:id
+router.put('/coupons/:id', (req, res) => {
+  const result = store.updateCoupon(req.params.id, req.body);
+  if (result.error) return res.status(result.error === 'Coupon not found' ? 404 : 400).json({ success: false, error: result.error });
+  res.json({ success: true, coupon: result.coupon });
+});
+
+// DELETE /api/admin/coupons/:id
+router.delete('/coupons/:id', (req, res) => {
+  const result = store.deleteCoupon(req.params.id);
+  if (result.error) return res.status(404).json({ success: false, error: result.error });
+  res.json({ success: true });
+});
+
+// ── Broadcast Offer Email ──
+
+// POST /api/admin/broadcast-offer
+router.post('/broadcast-offer', async (req, res) => {
+  const { subject, message } = req.body;
+  if (!subject || !message) return res.status(400).json({ success: false, error: 'Subject and message are required' });
+  try {
+    const result = await store.broadcastOfferEmail(subject, message);
+    res.json({ success: true, sentCount: result.sentCount });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message || 'Failed to send broadcast' });
+  }
+});
+
 module.exports = router;

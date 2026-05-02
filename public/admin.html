@@ -73,6 +73,29 @@
     .notif-content h4 { font-size: 14px; margin-bottom: 4px; }
     .notif-content p { font-size: 13px; color: var(--text-secondary); margin-bottom: 6px; }
     .notif-time { font-size: 11px; color: var(--text-muted); }
+
+    /* Mic / Offer Broadcast */
+    .mic-btn { position: relative; cursor: pointer; font-size: 20px; display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 50%; background: var(--bg-surface); border: 1px solid var(--border-subtle); transition: all 0.3s ease; }
+    .mic-btn:hover { background: rgba(212,167,69,0.15); border-color: var(--accent); }
+    .mic-btn.recording { background: rgba(239,68,68,0.15); border-color: #ef4444; animation: micPulse 1.2s infinite; }
+    .mic-btn.recording::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid rgba(239,68,68,0.4); animation: micRing 1.2s infinite; }
+    @keyframes micPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.3); } 50% { box-shadow: 0 0 0 10px rgba(239,68,68,0); } }
+    @keyframes micRing { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(1.4); opacity: 0; } }
+
+    .offer-panel { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 520px; max-width: 92vw; background: rgba(17, 42, 26, 0.95); backdrop-filter: blur(24px); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); box-shadow: 0 24px 80px rgba(0,0,0,0.5); z-index: 300; display: none; animation: fadeInUp 0.3s ease; }
+    .offer-panel.open { display: block; }
+    .offer-panel-header { padding: 20px 24px; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center; }
+    .offer-panel-header h3 { font-size: 18px; display: flex; align-items: center; gap: 10px; }
+    .offer-panel-body { padding: 24px; }
+    .offer-panel-body textarea { width: 100%; height: 120px; resize: vertical; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: 14px; color: var(--text); font-family: inherit; font-size: 15px; line-height: 1.6; }
+    .offer-panel-body textarea:focus { border-color: var(--accent); outline: none; }
+    .offer-panel-body .offer-subject { width: 100%; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: 12px 14px; color: var(--text); font-family: inherit; font-size: 14px; margin-bottom: 12px; }
+    .offer-panel-body .offer-subject:focus { border-color: var(--accent); outline: none; }
+    .offer-panel-footer { padding: 16px 24px; border-top: 1px solid var(--border-subtle); display: flex; justify-content: flex-end; gap: 12px; }
+    .offer-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 299; display: none; }
+    .offer-overlay.open { display: block; }
+    .recording-hint { display: flex; align-items: center; gap: 8px; color: #ef4444; font-size: 13px; font-weight: 500; margin-bottom: 12px; }
+    .recording-hint .dot { width: 8px; height: 8px; border-radius: 50%; background: #ef4444; animation: micPulse 1s infinite; }
   </style>
 </head>
 <body>
@@ -120,6 +143,8 @@
       <div class="nav-item active" data-tab="dashboard" onclick="AdminApp.navigate('dashboard')"><span>📊</span> Dashboard</div>
       <div class="nav-item" data-tab="products" onclick="AdminApp.navigate('products')"><span>📦</span> Products</div>
       <div class="nav-item" data-tab="orders" onclick="AdminApp.navigate('orders')"><span>📋</span> Orders</div>
+      <div class="nav-item" data-tab="customers" onclick="AdminApp.navigate('customers')"><span>👥</span> Customers</div>
+      <div class="nav-item" data-tab="coupons" onclick="AdminApp.navigate('coupons')"><span>🎟️</span> Coupons</div>
       <div class="nav-item" data-tab="reviews" onclick="AdminApp.navigate('reviews')"><span>⭐</span> Reviews</div>
     </div>
     <div class="sidebar-footer">
@@ -138,6 +163,9 @@
       <h2 id="page-title">Dashboard</h2>
       <div style="display:flex;gap:20px;align-items:center;">
         <a href="/" target="_blank" class="btn btn-outline btn-sm">View Store ↗</a>
+        <div class="mic-btn" id="mic-btn" onclick="AdminApp.toggleMic()" title="Speak an offer to broadcast">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        </div>
         <div class="notif-bell" onclick="AdminApp.toggleNotifs()">
           🔔<span class="notif-badge" id="notif-badge" style="display:none;">0</span>
         </div>
@@ -262,6 +290,33 @@
         </table>
       </div>
     </div>
+
+    <!-- CUSTOMERS -->
+    <div class="admin-content" id="tab-customers">
+      <div class="table-card">
+        <div class="table-header-bar">
+          <h3>Customer Database</h3>
+        </div>
+        <table>
+          <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Joined Date</th></tr></thead>
+          <tbody id="customers-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- COUPONS -->
+    <div class="admin-content" id="tab-coupons">
+      <div class="table-card">
+        <div class="table-header-bar">
+          <h3>Coupon Management</h3>
+          <button class="btn btn-primary btn-sm" onclick="AdminApp.openCouponModal()">+ Create Coupon</button>
+        </div>
+        <table>
+          <thead><tr><th>Code</th><th>Type</th><th>Value</th><th>Min Order</th><th>Usage</th><th>Expires</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="coupons-table-body"></tbody>
+        </table>
+      </div>
+    </div>
   </main>
 
   <!-- Product Edit Modal -->
@@ -295,6 +350,57 @@
     </div>
   </div>
 
+  <!-- Coupon Edit Modal -->
+  <div class="admin-modal" id="modal-coupon">
+    <div class="admin-modal-content">
+      <h2 style="margin-bottom:24px;" id="cm-title">Create Coupon</h2>
+      <form id="coupon-form" onsubmit="AdminApp.saveCoupon(event)">
+        <input type="hidden" id="c-id">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Coupon Code</label>
+            <input type="text" id="c-code" placeholder="e.g. WELCOME50" required style="text-transform:uppercase;">
+          </div>
+          <div class="form-group">
+            <label>Discount Type</label>
+            <select id="c-type" style="width:100%;padding:12px;background:var(--bg-surface);border:1px solid var(--border-subtle);color:var(--text);border-radius:var(--radius);outline:none;">
+              <option value="percentage">Percentage (%)</option>
+              <option value="flat">Flat Amount (₹)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Discount Value</label>
+            <input type="number" id="c-value" required min="1" placeholder="e.g. 10">
+          </div>
+          <div class="form-group">
+            <label>Min Order Amount (₹)</label>
+            <input type="number" id="c-min-order" min="0" value="0" placeholder="0 = no min">
+          </div>
+          <div class="form-group">
+            <label>Max Uses (total)</label>
+            <input type="number" id="c-max-uses" min="0" value="0" placeholder="0 = unlimited">
+          </div>
+          <div class="form-group">
+            <label>Per-User Limit</label>
+            <input type="number" id="c-per-user" min="0" value="1" placeholder="1">
+          </div>
+          <div class="form-group">
+            <label>Expiry Date</label>
+            <input type="date" id="c-expiry">
+          </div>
+          <div class="form-group" style="display:flex;align-items:center;gap:10px;padding-top:28px;">
+            <input type="checkbox" id="c-active" checked style="width:20px;height:20px;accent-color:var(--accent);">
+            <label for="c-active" style="margin:0;cursor:pointer;">Active</label>
+          </div>
+        </div>
+        <div style="display:flex;gap:12px;justify-content:flex-end;">
+          <button type="button" class="btn btn-outline" onclick="document.getElementById('modal-coupon').style.display='none'">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="c-submit">Save Coupon</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Admin Profile Modal -->
   <div class="admin-modal" id="modal-admin-profile" style="display:none;">
     <div class="admin-modal-content" style="max-width:480px;">
@@ -312,6 +418,27 @@
           <button type="submit" class="btn btn-primary" id="ap-submit">Save Changes</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Offer Broadcast Panel -->
+  <div class="offer-overlay" id="offer-overlay" onclick="AdminApp.closeOfferPanel()"></div>
+  <div class="offer-panel" id="offer-panel">
+    <div class="offer-panel-header">
+      <h3>📢 Broadcast Offer</h3>
+      <button class="action-btn" onclick="AdminApp.closeOfferPanel()" style="font-size:22px;">✕</button>
+    </div>
+    <div class="offer-panel-body">
+      <div class="recording-hint" id="recording-hint" style="display:none;">
+        <span class="dot"></span> Listening... Speak your offer now
+      </div>
+      <input type="text" class="offer-subject" id="offer-subject" placeholder="Email subject (e.g. Special Weekend Offer! 🎉)" value="🎉 Special Offer from Green Valley Farm!">
+      <textarea id="offer-message" placeholder="Type or speak your offer message here..."></textarea>
+      <p style="color:var(--text-muted);font-size:12px;margin-top:8px;">💡 Click the mic button to dictate. This will be emailed to all registered customers.<br><strong style="color:var(--primary); margin-top:4px; display:inline-block;">🏷️ Note: All your Active Coupons will automatically be beautifully attached at the bottom of this email!</strong></p>
+    </div>
+    <div class="offer-panel-footer">
+      <button class="btn btn-outline btn-sm" onclick="AdminApp.closeOfferPanel()">Cancel</button>
+      <button class="btn btn-primary btn-sm" id="send-offer-btn" onclick="AdminApp.sendOfferBroadcast()">📧 Send to All Customers</button>
     </div>
   </div>
 

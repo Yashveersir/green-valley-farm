@@ -1221,3 +1221,154 @@ img { max-width: 100%; display: block; }
     justify-content: center;
   }
 }
+
+/* ═══════════════════════════════════════════════
+   PRELOADER ANIMATION
+   ═══════════════════════════════════════════════ */
+.gvf-preloader {
+  position: fixed; inset: 0; z-index: 99999;
+  background: linear-gradient(145deg, #0a1a10 0%, #112a1a 50%, #0d2818 100%);
+  display: flex; align-items: center; justify-content: center;
+  transition: opacity 0.6s ease, visibility 0.6s ease;
+}
+.gvf-preloader.fade-out { opacity: 0; visibility: hidden; pointer-events: none; }
+.preloader-content { text-align: center; animation: preloaderFadeIn 0.6s ease-out; }
+.preloader-logo-wrap { position: relative; width: 100px; height: 100px; margin: 0 auto 24px; }
+.preloader-logo {
+  width: 80px; height: 80px; border-radius: 50%; object-fit: cover;
+  position: absolute; top: 10px; left: 10px;
+  animation: preloaderPulse 1.8s ease-in-out infinite;
+  box-shadow: 0 0 30px rgba(212,167,69,0.3);
+}
+.preloader-ring {
+  position: absolute; inset: 0; border-radius: 50%;
+  border: 3px solid transparent; border-top-color: var(--accent);
+  border-right-color: var(--accent);
+  animation: preloaderSpin 1.2s linear infinite;
+}
+.preloader-title {
+  font-family: var(--font-display); font-size: 28px; font-weight: 700;
+  color: var(--text); margin-bottom: 4px;
+  animation: preloaderSlideUp 0.6s ease-out 0.2s both;
+}
+.preloader-sub {
+  font-size: 14px; color: var(--accent); letter-spacing: 3px; text-transform: uppercase;
+  margin-bottom: 28px; animation: preloaderSlideUp 0.6s ease-out 0.35s both;
+}
+.preloader-bar {
+  width: 180px; height: 3px; background: rgba(255,255,255,0.08);
+  border-radius: 4px; margin: 0 auto 20px; overflow: hidden;
+  animation: preloaderSlideUp 0.6s ease-out 0.5s both;
+}
+.preloader-bar-fill {
+  height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--primary-lighter));
+  border-radius: 4px; animation: preloaderProgress 2s ease-in-out forwards;
+}
+.preloader-tagline {
+  font-size: 13px; color: var(--text-muted);
+  animation: preloaderSlideUp 0.6s ease-out 0.6s both;
+}
+@keyframes preloaderFadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+@keyframes preloaderPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+@keyframes preloaderSpin { to { transform: rotate(360deg); } }
+@keyframes preloaderSlideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes preloaderProgress { 0% { width: 0; } 60% { width: 70%; } 100% { width: 100%; } }
+
+/* ═══════════════════════════════════════════════
+   WHATSAPP FLOATING BUTTON
+   ═══════════════════════════════════════════════ */
+.whatsapp-float {
+  position: fixed; bottom: 24px; right: 24px; z-index: 9990;
+  width: 56px; height: 56px; border-radius: 50%;
+  background: #25D366; color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 20px rgba(37,211,102,0.4);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  text-decoration: none;
+  animation: whatsappBounceIn 0.5s ease-out;
+}
+.whatsapp-float:hover { transform: scale(1.12); box-shadow: 0 6px 28px rgba(37,211,102,0.55); }
+@keyframes whatsappBounceIn {
+  0% { transform: scale(0); opacity: 0; }
+  60% { transform: scale(1.15); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* ═══════════════════════════════════════════════
+   COUPON CODE INPUT (Checkout)
+   ═══════════════════════════════════════════════ */
+.coupon-section { margin-bottom: 20px; }
+.coupon-input-wrap {
+  display: flex; gap: 8px; align-items: center;
+}
+.coupon-input-wrap input {
+  flex: 1; padding: 10px 14px; border-radius: var(--radius);
+  border: 1px solid var(--border); background: var(--bg-surface);
+  color: var(--text); font-size: 14px; text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.coupon-input-wrap input::placeholder { text-transform: none; letter-spacing: 0; }
+.coupon-input-wrap .btn { white-space: nowrap; }
+.coupon-applied {
+  display: flex; align-items: center; justify-content: space-between;
+  background: rgba(39,174,96,0.12); border: 1px solid rgba(39,174,96,0.3);
+  border-radius: var(--radius); padding: 10px 14px; margin-top: 8px;
+  font-size: 14px; color: var(--success);
+}
+.coupon-applied .coupon-remove { cursor: pointer; color: var(--danger); font-weight: 600; }
+.coupon-error { color: var(--danger); font-size: 13px; margin-top: 6px; }
+
+/* ═══════════════════════════════════════════════
+   DELIVERY MAP & LOCATION
+   ═══════════════════════════════════════════════ */
+.delivery-map-section { margin-bottom: 20px; }
+.delivery-map-section h4 { font-size: 15px; margin-bottom: 10px; color: var(--text); }
+#delivery-map {
+  width: 100%; height: 250px; border-radius: var(--radius);
+  border: 1px solid var(--border); overflow: hidden;
+}
+.map-search-wrap {
+  display: flex; gap: 8px; margin-bottom: 10px;
+}
+.map-search-wrap input {
+  flex: 1; padding: 10px 14px; border-radius: var(--radius);
+  border: 1px solid var(--border); background: var(--bg-surface);
+  color: var(--text); font-size: 14px;
+}
+.delivery-charge-info {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; border-radius: var(--radius);
+  background: var(--bg-surface); border: 1px solid var(--border);
+  margin-top: 10px; font-size: 14px;
+}
+.delivery-charge-info .charge-amount { font-weight: 700; color: var(--accent); }
+.delivery-charge-info .charge-free { color: var(--success); font-weight: 700; }
+
+/* ═══════════════════════════════════════════════
+   TIME SLOT SELECTOR (Checkout)
+   ═══════════════════════════════════════════════ */
+.time-slot-section { margin-bottom: 20px; }
+.time-slot-section h3 { font-size: 16px; margin-bottom: 12px; }
+.time-slots {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+}
+.time-slot-btn {
+  padding: 12px 8px; border-radius: var(--radius);
+  border: 1px solid var(--border); background: var(--bg-surface);
+  color: var(--text-secondary); cursor: pointer; text-align: center;
+  transition: all var(--transition); font-size: 13px;
+}
+.time-slot-btn:hover { border-color: var(--accent); color: var(--text); }
+.time-slot-btn.selected {
+  background: rgba(212,167,69,0.15); border-color: var(--accent);
+  color: var(--accent); font-weight: 600;
+}
+.time-slot-btn .slot-icon { font-size: 20px; display: block; margin-bottom: 4px; }
+.time-slot-btn .slot-time { font-size: 11px; color: var(--text-muted); display: block; }
+
+@media (max-width: 600px) {
+  .whatsapp-float { bottom: 16px; right: 16px; width: 50px; height: 50px; }
+  .whatsapp-float svg { width: 26px; height: 26px; }
+  .time-slots { grid-template-columns: 1fr; }
+}
+

@@ -7,6 +7,8 @@ const AdminApp = {
   products: [],
   orders: [],
   reviews: [],
+  coupons: [],
+  customers: [],
   reviewAnalytics: null,
   reviewFilters: { status: 'pending', sort: 'newest', rating: '', search: '' },
   notifications: [],
@@ -149,13 +151,15 @@ const AdminApp = {
     document.getElementById(`tab-${tab}`).classList.add('active');
     document.querySelector(`.nav-item[data-tab="${tab}"]`).classList.add('active');
     
-    const titles = { dashboard: 'Dashboard', products: 'Product Catalog', orders: 'Order Management', reviews: 'Review Moderation' };
+    const titles = { dashboard: 'Dashboard', products: 'Product Catalog', orders: 'Order Management', coupons: 'Coupon Management', reviews: 'Review Moderation', customers: 'Customer Database' };
     document.getElementById('page-title').textContent = titles[tab];
     this.currentTab = tab;
     
     if (tab === 'products') this.renderProducts();
     if (tab === 'orders') this.renderOrders();
+    if (tab === 'coupons') this.renderCoupons();
     if (tab === 'reviews') this.renderReviews();
+    if (tab === 'customers') this.renderCustomers();
   },
 
   // ── Data Loading & Dashboard ──
@@ -184,6 +188,8 @@ const AdminApp = {
       this.reviewAnalytics = reviewRes.analytics || reviewAnalytics;
       
       this.renderDashboard();
+      this.loadCoupons();
+      this.loadCustomers();
       this.loadNotifications();
     } catch (err) {
       this.toast('Failed to load dashboard data', 'error');
@@ -321,6 +327,148 @@ const AdminApp = {
       this.toast('Product deleted');
       await this.loadInitialData();
       this.renderProducts();
+    } catch (err) { this.toast(err.message, 'error'); }
+  },
+
+  // ── Customers ──
+  async loadCustomers() {
+    try {
+      const res = await API.request('/admin/customers');
+      this.customers = res.customers || [];
+      if (this.currentTab === 'customers') this.renderCustomers();
+    } catch (err) {
+      this.toast('Failed to load customers', 'error');
+    }
+  },
+
+  renderCustomers() {
+    const tbody = document.getElementById('customers-table-body');
+    if (!tbody) return;
+    if (!this.customers.length) {
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:40px;">No customers found.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = this.customers.map(c => `
+      <tr>
+        <td><strong>${c.name}</strong></td>
+        <td>${c.email}</td>
+        <td>${c.phone || '—'}</td>
+        <td>${c.createdAt ? new Date(c.createdAt).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' }) : '—'}</td>
+      </tr>
+    `).join('');
+  },
+
+  // ── Coupons ──
+  async loadCoupons() {
+    try {
+      const res = await API.request('/admin/coupons');
+      this.coupons = res.coupons || [];
+      if (this.currentTab === 'coupons') this.renderCoupons();
+    } catch (err) {
+      this.toast('Failed to load coupons', 'error');
+    }
+  },
+
+  renderCoupons() {
+    const tbody = document.getElementById('coupons-table-body');
+    if (!tbody) return;
+    if (!this.coupons.length) {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:40px;">No coupons yet. Click "+ Create Coupon" to get started.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = this.coupons.map(c => {
+      const isExpired = c.expiresAt && new Date(c.expiresAt) < new Date();
+      const statusColor = !c.active ? 'var(--text-muted)' : isExpired ? 'var(--danger)' : 'var(--success)';
+      const statusLabel = !c.active ? 'Inactive' : isExpired ? 'Expired' : 'Active';
+      const usageText = c.maxUses ? `${c.usedCount || 0} / ${c.maxUses}` : `${c.usedCount || 0} / ∞`;
+      const expiryText = c.expiresAt ? new Date(c.expiresAt).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' }) : 'Never';
+      return `
+      <tr>
+        <td><strong style="letter-spacing:1px;color:var(--accent);">${c.code}</strong></td>
+        <td style="text-transform:capitalize;">${c.type}</td>
+        <td><strong>${c.type === 'percentage' ? c.value + '%' : '₹' + c.value}</strong></td>
+        <td>${c.minOrderAmount ? '₹' + c.minOrderAmount : '—'}</td>
+        <td>${usageText}<br><small style="color:var(--text-muted);">Per user: ${c.perUserLimit || '∞'}</small></td>
+        <td>${expiryText}</td>
+        <td><span style="color:${statusColor};font-weight:600;font-size:12px;">${statusLabel}</span></td>
+        <td style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-outline btn-sm" onclick="AdminApp.editCoupon('${c.id || c._id}')" title="Edit">✎ Edit</button>
+          <button class="btn btn-outline btn-sm" style="color:${c.active ? 'var(--text-muted)' : 'var(--success)'};" onclick="AdminApp.toggleCoupon('${c.id || c._id}', ${!c.active})">${c.active ? '⏸ Disable' : '▶ Enable'}</button>
+          <button class="btn btn-outline btn-sm" style="color:var(--danger);" onclick="AdminApp.deleteCoupon('${c.id || c._id}')" title="Delete">✕</button>
+        </td>
+      </tr>`;
+    }).join('');
+  },
+
+  openCouponModal() {
+    document.getElementById('coupon-form').reset();
+    document.getElementById('c-id').value = '';
+    document.getElementById('c-active').checked = true;
+    document.getElementById('cm-title').textContent = 'Create Coupon';
+    document.getElementById('modal-coupon').style.display = 'flex';
+  },
+
+  editCoupon(id) {
+    const c = this.coupons.find(x => (x.id || x._id) === id);
+    if (!c) return;
+    document.getElementById('c-id').value = id;
+    document.getElementById('c-code').value = c.code;
+    document.getElementById('c-type').value = c.type;
+    document.getElementById('c-value').value = c.value;
+    document.getElementById('c-min-order').value = c.minOrderAmount || 0;
+    document.getElementById('c-max-uses').value = c.maxUses || 0;
+    document.getElementById('c-per-user').value = c.perUserLimit || 1;
+    document.getElementById('c-expiry').value = c.expiresAt ? new Date(c.expiresAt).toISOString().split('T')[0] : '';
+    document.getElementById('c-active').checked = c.active !== false;
+    document.getElementById('cm-title').textContent = 'Edit Coupon';
+    document.getElementById('modal-coupon').style.display = 'flex';
+  },
+
+  async saveCoupon(e) {
+    e.preventDefault();
+    const btn = document.getElementById('c-submit');
+    btn.disabled = true; btn.textContent = 'Saving...';
+    const id = document.getElementById('c-id').value;
+    const data = {
+      code: document.getElementById('c-code').value.toUpperCase().trim(),
+      type: document.getElementById('c-type').value,
+      value: Number(document.getElementById('c-value').value),
+      minOrderAmount: Number(document.getElementById('c-min-order').value) || 0,
+      maxUses: Number(document.getElementById('c-max-uses').value) || 0,
+      perUserLimit: Number(document.getElementById('c-per-user').value) || 1,
+      expiresAt: document.getElementById('c-expiry').value || null,
+      active: document.getElementById('c-active').checked
+    };
+    try {
+      if (id) {
+        await API.request(`/admin/coupons/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+        this.toast('Coupon updated');
+      } else {
+        await API.request('/admin/coupons', { method: 'POST', body: JSON.stringify(data) });
+        this.toast('Coupon created');
+      }
+      document.getElementById('modal-coupon').style.display = 'none';
+      await this.loadCoupons();
+    } catch (err) {
+      this.toast(err.message || 'Failed to save coupon', 'error');
+    }
+    btn.disabled = false; btn.textContent = 'Save Coupon';
+  },
+
+  async toggleCoupon(id, active) {
+    try {
+      await API.request(`/admin/coupons/${id}`, { method: 'PUT', body: JSON.stringify({ active }) });
+      this.toast(active ? 'Coupon enabled' : 'Coupon disabled');
+      await this.loadCoupons();
+    } catch (err) { this.toast(err.message, 'error'); }
+  },
+
+  async deleteCoupon(id) {
+    if (!confirm('Delete this coupon permanently?')) return;
+    try {
+      await API.request(`/admin/coupons/${id}`, { method: 'DELETE' });
+      this.toast('Coupon deleted');
+      await this.loadCoupons();
     } catch (err) { this.toast(err.message, 'error'); }
   },
 
@@ -526,6 +674,120 @@ const AdminApp = {
         document.getElementById('notif-panel').classList.remove('open');
       }
     });
+  },
+
+  // ── Voice Offer Broadcast ──
+  _recognition: null,
+  _isRecording: false,
+
+  toggleMic() {
+    if (this._isRecording) {
+      this.stopRecording();
+    } else {
+      this.startRecording();
+    }
+  },
+
+  startRecording() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      this.toast('Speech recognition not supported in this browser. Please type your offer.', 'error');
+      this.openOfferPanel();
+      return;
+    }
+
+    this._recognition = new SpeechRecognition();
+    this._recognition.lang = 'en-IN';
+    this._recognition.interimResults = true;
+    this._recognition.continuous = true;
+    this._recognition.maxAlternatives = 1;
+
+    let finalTranscript = document.getElementById('offer-message')?.value || '';
+
+    this._recognition.onresult = (event) => {
+      let interim = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const t = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscript += (finalTranscript ? ' ' : '') + t;
+        } else {
+          interim += t;
+        }
+      }
+      const textarea = document.getElementById('offer-message');
+      if (textarea) textarea.value = finalTranscript + (interim ? ' ' + interim : '');
+    };
+
+    this._recognition.onerror = (event) => {
+      console.error('Speech error:', event.error);
+      if (event.error === 'not-allowed') {
+        this.toast('Microphone access denied. Please allow mic access.', 'error');
+      }
+      this.stopRecording();
+    };
+
+    this._recognition.onend = () => {
+      // Auto-stop if recognition ends
+      if (this._isRecording) this.stopRecording();
+    };
+
+    try {
+      this._recognition.start();
+      this._isRecording = true;
+      document.getElementById('mic-btn')?.classList.add('recording');
+      this.openOfferPanel();
+      document.getElementById('recording-hint').style.display = 'flex';
+      this.toast('🎙️ Listening... Speak your offer');
+    } catch (err) {
+      this.toast('Could not start microphone: ' + err.message, 'error');
+    }
+  },
+
+  stopRecording() {
+    if (this._recognition) {
+      try { this._recognition.stop(); } catch {}
+      this._recognition = null;
+    }
+    this._isRecording = false;
+    document.getElementById('mic-btn')?.classList.remove('recording');
+    const hint = document.getElementById('recording-hint');
+    if (hint) hint.style.display = 'none';
+  },
+
+  openOfferPanel() {
+    document.getElementById('offer-panel')?.classList.add('open');
+    document.getElementById('offer-overlay')?.classList.add('open');
+  },
+
+  closeOfferPanel() {
+    this.stopRecording();
+    document.getElementById('offer-panel')?.classList.remove('open');
+    document.getElementById('offer-overlay')?.classList.remove('open');
+  },
+
+  async sendOfferBroadcast() {
+    const subject = document.getElementById('offer-subject')?.value?.trim();
+    const message = document.getElementById('offer-message')?.value?.trim();
+    if (!message) { this.toast('Please enter or speak an offer message', 'error'); return; }
+    if (!subject) { this.toast('Please enter an email subject', 'error'); return; }
+
+    const btn = document.getElementById('send-offer-btn');
+    btn.disabled = true;
+    btn.textContent = '⏳ Sending...';
+
+    try {
+      const res = await API.request('/admin/broadcast-offer', {
+        method: 'POST',
+        body: JSON.stringify({ subject, message })
+      });
+      this.toast(`✅ Offer sent to ${res.sentCount || 0} customers!`);
+      this.closeOfferPanel();
+      document.getElementById('offer-message').value = '';
+    } catch (err) {
+      this.toast(err.message || 'Failed to send offer', 'error');
+    }
+    btn.disabled = false;
+    btn.textContent = '📧 Send to All Customers';
   },
 
   toast(message, type = 'success') {

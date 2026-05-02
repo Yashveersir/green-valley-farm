@@ -243,6 +243,92 @@ const REVIEW_SORTERS = {
 const MAX_REVIEW_PHOTOS = 3;
 const MAX_REVIEW_PHOTO_DATA_URL_LENGTH = 450000;
 
+// ── Coupons in-memory ──
+let coupons = [];
+
+// ── Email notification helpers ──
+async function sendEmail(to, subject, html) {
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    console.log(`[MOCK EMAIL] To: ${to} | Subject: ${subject}`);
+    return;
+  }
+  try {
+    await mailer.sendMail({
+      from: `"Green Valley Farm" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+      to, subject, html
+    });
+    console.log(`[Email] Sent: ${subject} to ${to}`);
+  } catch (err) { console.error('[Email Error]:', err.message); }
+}
+
+async function sendWelcomeEmail(user) {
+  const html = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f6f9f4;font-family:'Segoe UI',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:40px 16px;">
+<table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.08);">
+  <tr><td style="background:linear-gradient(135deg,#1a4d2e 0%,#2d7a4a 100%);padding:40px 40px 32px;text-align:center;">
+    <h1 style="margin:0;font-size:28px;color:#ffffff;font-weight:700;">🌿 Green Valley Farm</h1>
+    <p style="margin:8px 0 0;color:rgba(255,255,255,0.8);font-size:14px;">Farm-Fresh Poultry, Delivered with Care</p>
+  </td></tr>
+  <tr><td style="padding:36px 40px;">
+    <h2 style="margin:0 0 16px;color:#1a4d2e;font-size:22px;">Welcome to the Family! 🎉</h2>
+    <p style="margin:0 0 16px;color:#333;font-size:15px;line-height:1.7;">Hello <strong>${user.name}</strong>,</p>
+    <p style="margin:0 0 16px;color:#555;font-size:15px;line-height:1.7;">Thank you for joining Green Valley Poultry Farm! We're thrilled to have you as part of our growing family of fresh food lovers.</p>
+    <div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-radius:12px;padding:20px;margin:24px 0;border-left:4px solid #22c55e;">
+      <p style="margin:0;color:#166534;font-size:14px;font-weight:600;">🐔 What you can expect:</p>
+      <ul style="margin:8px 0 0;padding-left:20px;color:#333;font-size:14px;line-height:2;">
+        <li>100% farm-fresh, antibiotic-free poultry</li>
+        <li>Free delivery on orders above ₹400</li>
+        <li>Same-day delivery in your area</li>
+      </ul>
+    </div>
+    <div style="text-align:center;margin-top:28px;">
+      <a href="https://green-valley-farm.online/" style="display:inline-block;background:linear-gradient(135deg,#1a4d2e,#2d7a4a);color:#fff;padding:14px 40px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;box-shadow:0 4px 16px rgba(26,77,46,0.3);">🛒 Start Shopping</a>
+    </div>
+    <div style="text-align:center;margin-top:16px;">
+      <a href="https://wa.me/919471800046?text=Hi!%20I%20just%20signed%20up%20on%20Green%20Valley%20Farm!" style="color:#25D366;text-decoration:none;font-size:13px;font-weight:600;">💬 Chat with us on WhatsApp</a>
+    </div>
+  </td></tr>
+  <tr><td style="padding:20px 40px;background:#f8faf8;text-align:center;border-top:1px solid #e8f0e8;">
+    <p style="margin:0;color:#888;font-size:12px;">Green Valley Poultry Farm — Fresh from our farm to your door 🌿</p>
+    <p style="margin:4px 0 0;color:#aaa;font-size:11px;">This email was sent because you created an account on <a href="https://green-valley-farm.online/" style="color:#1a4d2e;text-decoration:none;">green-valley-farm.online</a></p>
+  </td></tr>
+</table></td></tr></table></body></html>`;
+  await sendEmail(user.email, '🌿 Welcome to Green Valley Poultry Farm!', html);
+}
+
+
+async function sendDeliveryEmail(order, userEmail) {
+  const html = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f6f9f4;font-family:'Segoe UI',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:40px 16px;">
+<table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.08);">
+  <tr><td style="background:linear-gradient(135deg,#1a4d2e 0%,#2d7a4a 100%);padding:40px 40px 32px;text-align:center;">
+    <h1 style="margin:0;font-size:26px;color:#ffffff;font-weight:700;">🌿 Green Valley Farm</h1>
+    <p style="margin:8px 0 0;color:rgba(255,255,255,0.8);font-size:14px;">Farm-Fresh, Delivered with Care</p>
+  </td></tr>
+  <tr><td style="padding:36px 40px;">
+    <div style="text-align:center;margin-bottom:24px;">
+      <span style="font-size:48px;">📦✅</span>
+      <h2 style="margin:12px 0 4px;color:#1a4d2e;font-size:22px;">Order Delivered!</h2>
+      <p style="margin:0;color:#666;font-size:14px;">Your order has been successfully delivered</p>
+    </div>
+    <table width="100%" style="background:#f8faf8;border-radius:12px;margin:20px 0;" cellpadding="0" cellspacing="0">
+      <tr><td style="padding:14px 20px;color:#888;font-size:13px;border-bottom:1px solid #e8f0e8;">Order ID</td><td style="padding:14px 20px;font-weight:700;text-align:right;border-bottom:1px solid #e8f0e8;">${order.orderId}</td></tr>
+      <tr><td style="padding:14px 20px;color:#888;font-size:13px;">Total Paid</td><td style="padding:14px 20px;font-weight:700;text-align:right;color:#1a4d2e;font-size:18px;">&#8377;${order.totalPrice}</td></tr>
+    </table>
+    <p style="margin:16px 0;color:#555;font-size:15px;line-height:1.7;">We hope you enjoy your fresh products! Your satisfaction means the world to us. 🙏</p>
+    <div style="text-align:center;margin-top:24px;">
+      <a href="https://green-valley-farm.online/" style="display:inline-block;background:linear-gradient(135deg,#1a4d2e,#2d7a4a);color:#fff;padding:12px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;margin-right:8px;">🛒 Order Again</a>
+      <a href="https://wa.me/919471800046?text=Hi!%20I%20received%20my%20order%20${order.orderId}" style="display:inline-block;background:#25D366;color:#fff;padding:12px 24px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;">💬 Need Help?</a>
+    </div>
+  </td></tr>
+  <tr><td style="padding:20px 40px;background:#f8faf8;text-align:center;border-top:1px solid #e8f0e8;">
+    <p style="margin:0;color:#888;font-size:12px;">Green Valley Poultry Farm — Fresh from our farm to your door 🌿</p>
+    <p style="margin:4px 0 0;color:#aaa;font-size:11px;"><a href="https://green-valley-farm.online/" style="color:#1a4d2e;text-decoration:none;">green-valley-farm.online</a></p>
+  </td></tr>
+</table></td></tr></table></body></html>`;
+  await sendEmail(userEmail, `📦 Order ${order.orderId} Delivered!`, html);
+}
+
 function sanitizeText(value, maxLength = 500) {
   return String(value || '')
     .replace(/<[^>]*>/g, ' ')
@@ -389,6 +475,8 @@ function getCancelDeadline(order) {
   return new Date(new Date(order.placedAt).getTime() + ORDER_CANCEL_WINDOW_MS);
 }
 
+products = products.map(normalizeProduct);
+
 const store = {
   isInitialized: false,
   // ══════ DATABASE INIT ══════
@@ -398,7 +486,7 @@ const store = {
       const connected = await db.connectDB();
       if (connected) {
         console.log('[Store] MongoDB connected, loading data...');
-        await db.bootstrapCollections(['users', 'orders', 'carts', 'notifications', 'products', 'pendingOtps', 'reviews']);
+        await db.bootstrapCollections(['users', 'orders', 'carts', 'notifications', 'products', 'pendingOtps', 'reviews', 'coupons']);
 
         const savedUsers = await db.loadData('users');
         if (savedUsers && savedUsers.length > 0) {
@@ -470,6 +558,9 @@ const store = {
 
         const savedReviews = await db.loadData('reviews');
         if (savedReviews) reviews = savedReviews.map(normalizeReview);
+
+        const savedCoupons = await db.loadData('coupons');
+        if (savedCoupons) coupons = savedCoupons;
         
         const savedProducts = await db.loadData('products');
         if (savedProducts && savedProducts.length > 0) {
@@ -617,6 +708,7 @@ const store = {
     await db.saveData('users', users);
     const refreshToken = await issueRefreshSession(user);
     await db.saveData('users', users);
+    sendWelcomeEmail(user).catch(() => {});
     return buildAuthResponse(user, refreshToken);
   },
 
@@ -655,7 +747,9 @@ const store = {
       }
     }
 
+    let isNewUser = false;
     if (!user) {
+      isNewUser = true;
       user = {
         id: `user-${uuidv4().slice(0, 8)}`,
         name: profile.name || cleanEmail.split('@')[0],
@@ -674,6 +768,7 @@ const store = {
     await db.saveData('users', users);
     const refreshToken = await issueRefreshSession(user);
     await db.saveData('users', users);
+    if (isNewUser) sendWelcomeEmail(user).catch(() => {});
     return buildAuthResponse(user, refreshToken);
   },
 
@@ -693,6 +788,7 @@ const store = {
     }
     const refreshToken = await issueRefreshSession(user);
     await db.saveData('users', users);
+
     return buildAuthResponse(user, refreshToken);
   },
 
@@ -1179,7 +1275,7 @@ const store = {
   async placeOrder(userId, customerInfo) {
     const cart = carts[userId] || [];
     if (!cart.length) return { error: 'Cart is empty' };
-    const { name, phone, address, paymentMethod, upiUtr, upiScreenshot, razorpayOrderId, razorpayPaymentId } = customerInfo;
+    const { name, phone, address, paymentMethod, upiUtr, upiScreenshot, razorpayOrderId, razorpayPaymentId, timeSlot, deliveryCharge, deliveryCoords, couponCode, couponDiscount } = customerInfo;
     if (!name || !phone || !address) return { error: 'Name, phone, and address are required' };
 
     for (const item of cart) {
@@ -1187,12 +1283,23 @@ const store = {
       if (product) product.stock -= item.quantity;
     }
 
+    const subtotal = cart.reduce((s, i) => s + i.subtotal, 0);
+    const appliedDiscount = parseFloat(couponDiscount) || 0;
+    const appliedDeliveryCharge = parseFloat(deliveryCharge) || 0;
+    const finalTotal = subtotal - appliedDiscount + appliedDeliveryCharge;
+
     const order = {
       orderId: `ORD-${Date.now().toString(36).toUpperCase()}-${uuidv4().slice(0, 4).toUpperCase()}`,
       userId,
       items: [...cart],
       totalItems: cart.reduce((s, i) => s + i.quantity, 0),
-      totalPrice: cart.reduce((s, i) => s + i.subtotal, 0),
+      subtotal,
+      couponCode: couponCode || null,
+      couponDiscount: appliedDiscount,
+      deliveryCharge: appliedDeliveryCharge,
+      deliveryCoords: deliveryCoords || null,
+      timeSlot: timeSlot || 'afternoon',
+      totalPrice: finalTotal,
       paymentMethod: paymentMethod || 'COD',
       upiUtr: upiUtr || null,
       upiScreenshot: upiScreenshot || null,
@@ -1205,6 +1312,10 @@ const store = {
       placedAt: new Date().toISOString(),
       estimatedDelivery: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
     };
+
+    // Record coupon usage
+    if (couponCode) this.recordCouponUsage(couponCode, userId);
+
     orders.push(order);
     carts[userId] = [];
     await db.saveData('orders', orders);
@@ -1243,31 +1354,36 @@ const store = {
     ).join('');
 
     // ── HTML Customer Email ──
-    const customerHtml = `<!DOCTYPE html><html><body style="margin:0;padding:0;font-family:Arial,sans-serif;background:#f4f4f4">
-<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px">
-<table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
-  <tr><td style="background:#2d5a27;padding:32px;text-align:center">
-    <h1 style="color:#fff;margin:0;font-size:24px">Green Valley Poultry Farm</h1>
-    <p style="color:#a8d5a2;margin:8px 0 0">Order Confirmed!</p>
+    const customerHtml = `<!DOCTYPE html><html><body style="margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;background:#f6f9f4">
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:40px 16px">
+<table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.08)">
+  <tr><td style="background:linear-gradient(135deg,#1a4d2e 0%,#2d7a4a 100%);padding:40px 40px 32px;text-align:center">
+    <h1 style="margin:0;font-size:26px;color:#ffffff;font-weight:700">🌿 Green Valley Farm</h1>
+    <p style="margin:8px 0 0;color:rgba(255,255,255,0.8);font-size:14px">Order Confirmed!</p>
   </td></tr>
-  <tr><td style="padding:32px">
-    <p style="font-size:16px;color:#333">Hi <strong>${order.customer.name}</strong>,</p>
-    <p style="color:#555">Your order has been successfully placed. We will deliver your farm-fresh products soon!</p>
-    <table width="100%" style="background:#f9f9f9;border-radius:8px;padding:16px;margin:20px 0" cellpadding="0" cellspacing="0">
-      <tr><td style="padding:6px 0;color:#888;font-size:13px">Order ID</td><td style="padding:6px 0;font-weight:bold;text-align:right">${order.orderId}</td></tr>
-      <tr><td style="padding:6px 0;color:#888;font-size:13px">Payment</td><td style="padding:6px 0;text-align:right">${paymentLine}</td></tr>
-      <tr><td style="padding:6px 0;color:#888;font-size:13px">Est. Delivery</td><td style="padding:6px 0;text-align:right">${order.estimatedDelivery}</td></tr>
+  <tr><td style="padding:36px 40px">
+    <p style="margin:0 0 16px;font-size:16px;color:#333">Hi <strong>${order.customer.name}</strong>,</p>
+    <p style="margin:0 0 20px;color:#555;font-size:15px;line-height:1.7">Your order has been successfully placed! We're preparing your farm-fresh products for delivery. 🚚</p>
+    <table width="100%" style="background:#f8faf8;border-radius:12px;margin:20px 0" cellpadding="0" cellspacing="0">
+      <tr><td style="padding:14px 20px;color:#888;font-size:13px;border-bottom:1px solid #e8f0e8">Order ID</td><td style="padding:14px 20px;font-weight:700;text-align:right;border-bottom:1px solid #e8f0e8">${order.orderId}</td></tr>
+      <tr><td style="padding:14px 20px;color:#888;font-size:13px;border-bottom:1px solid #e8f0e8">Payment</td><td style="padding:14px 20px;text-align:right;border-bottom:1px solid #e8f0e8">${paymentLine}</td></tr>
+      <tr><td style="padding:14px 20px;color:#888;font-size:13px">Est. Delivery</td><td style="padding:14px 20px;text-align:right;font-weight:600;color:#1a4d2e">${order.estimatedDelivery}</td></tr>
     </table>
-    <table width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0">
-      <tr style="background:#f0f0f0"><th style="padding:8px;text-align:left">Item</th><th style="padding:8px;text-align:center">Qty</th><th style="padding:8px;text-align:right">Price</th></tr>
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0;border-radius:8px;overflow:hidden">
+      <tr style="background:#1a4d2e"><th style="padding:10px 12px;text-align:left;color:#fff;font-size:13px;font-weight:600">Item</th><th style="padding:10px 12px;text-align:center;color:#fff;font-size:13px;font-weight:600">Qty</th><th style="padding:10px 12px;text-align:right;color:#fff;font-size:13px;font-weight:600">Price</th></tr>
       ${itemRows}
-      <tr><td colspan="2" style="padding:12px 8px;font-weight:bold">Total</td><td style="padding:12px 8px;font-weight:bold;text-align:right;color:#2d5a27">&#8377;${order.totalPrice}</td></tr>
+      <tr style="background:#f8faf8"><td colspan="2" style="padding:14px 12px;font-weight:700;font-size:15px">Total</td><td style="padding:14px 12px;font-weight:700;text-align:right;color:#1a4d2e;font-size:18px">&#8377;${order.totalPrice}</td></tr>
     </table>
-    <p style="color:#555;font-size:14px">Delivery to: <strong>${order.customer.address}</strong></p>
-    <p style="color:#888;font-size:13px;margin-top:32px">Thank you for choosing Green Valley Poultry Farm. For questions, reply to this email.</p>
+    <div style="background:#f0fdf4;border-radius:10px;padding:16px;margin:16px 0;border-left:4px solid #22c55e">
+      <p style="margin:0;color:#333;font-size:14px">📍 <strong>Delivery to:</strong> ${order.customer.address}</p>
+    </div>
+    <div style="text-align:center;margin-top:28px">
+      <a href="https://green-valley-farm.online/" style="display:inline-block;background:linear-gradient(135deg,#1a4d2e,#2d7a4a);color:#fff;padding:12px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px">🛒 Continue Shopping</a>
+    </div>
   </td></tr>
-  <tr><td style="background:#f9f9f9;padding:16px;text-align:center;color:#aaa;font-size:12px">
-    Green Valley Poultry Farm &mdash; Farm-fresh, delivered with care
+  <tr><td style="padding:20px 40px;background:#f8faf8;text-align:center;border-top:1px solid #e8f0e8">
+    <p style="margin:0;color:#888;font-size:12px">Green Valley Poultry Farm — Fresh from our farm to your door 🌿</p>
+    <p style="margin:4px 0 0;color:#aaa;font-size:11px"><a href="https://green-valley-farm.online/" style="color:#1a4d2e;text-decoration:none">green-valley-farm.online</a> · For queries, reply to this email</p>
   </td></tr>
 </table></td></tr></table></body></html>`;
 
@@ -1292,7 +1408,7 @@ const store = {
       ${itemRows}
     </table>
     <div style="margin-top:24px;text-align:center">
-      <a href="https://www.green-valley-farm.online/admin.html" style="background:#d4a745;color:#000;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block">View in Admin Dashboard</a>
+      <a href="https://green-valley-farm.online/admin.html" style="background:#d4a745;color:#000;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block">View in Admin Dashboard</a>
     </div>
   </td></tr>
 </table></td></tr></table></body></html>`;
@@ -1344,24 +1460,31 @@ const store = {
     ).join('');
 
     // ── HTML Customer Email ──
-    const customerHtml = `<!DOCTYPE html><html><body style="margin:0;padding:0;font-family:Arial,sans-serif;background:#f4f4f4">
-<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px">
-<table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
-  <tr><td style="background:#e74c3c;padding:32px;text-align:center">
-    <h1 style="color:#fff;margin:0;font-size:24px">Green Valley Poultry Farm</h1>
-    <p style="color:#fce4e4;margin:8px 0 0">Order Cancelled</p>
+    const customerHtml = `<!DOCTYPE html><html><body style="margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;background:#fef2f2">
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:40px 16px">
+<table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.08)">
+  <tr><td style="background:linear-gradient(135deg,#dc2626 0%,#b91c1c 100%);padding:40px 40px 32px;text-align:center">
+    <h1 style="margin:0;font-size:26px;color:#ffffff;font-weight:700">🌿 Green Valley Farm</h1>
+    <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px">Order Cancelled</p>
   </td></tr>
-  <tr><td style="padding:32px">
-    <p style="font-size:16px;color:#333">Hi <strong>${order.customer.name}</strong>,</p>
-    <p style="color:#555">Your order <strong>${order.orderId}</strong> has been cancelled successfully.</p>
-    <table width="100%" style="background:#f9f9f9;border-radius:8px;padding:16px;margin:20px 0" cellpadding="0" cellspacing="0">
-      <tr><td style="padding:6px 0;color:#888;font-size:13px">Order ID</td><td style="padding:6px 0;font-weight:bold;text-align:right">${order.orderId}</td></tr>
-      <tr><td style="padding:6px 0;color:#888;font-size:13px">Total Amount</td><td style="padding:6px 0;text-align:right">&#8377;${order.totalPrice}</td></tr>
+  <tr><td style="padding:36px 40px">
+    <p style="margin:0 0 16px;font-size:16px;color:#333">Hi <strong>${order.customer.name}</strong>,</p>
+    <p style="margin:0 0 20px;color:#555;font-size:15px;line-height:1.7">Your order <strong>${order.orderId}</strong> has been cancelled successfully.</p>
+    <table width="100%" style="background:#fef2f2;border-radius:12px;margin:20px 0" cellpadding="0" cellspacing="0">
+      <tr><td style="padding:14px 20px;color:#888;font-size:13px;border-bottom:1px solid #fecaca">Order ID</td><td style="padding:14px 20px;font-weight:700;text-align:right;border-bottom:1px solid #fecaca">${order.orderId}</td></tr>
+      <tr><td style="padding:14px 20px;color:#888;font-size:13px">Total Amount</td><td style="padding:14px 20px;font-weight:700;text-align:right;color:#dc2626;font-size:16px;text-decoration:line-through">&#8377;${order.totalPrice}</td></tr>
     </table>
-    <p style="color:#888;font-size:13px;margin-top:32px">If you paid online (UPI or Razorpay), any applicable refund will be processed according to our policy. For questions, reply to this email.</p>
+    <div style="background:#fefce8;border-radius:10px;padding:16px;margin:16px 0;border-left:4px solid #eab308">
+      <p style="margin:0;color:#713f12;font-size:13px;line-height:1.6">💡 If you paid online (UPI or Razorpay), any applicable refund will be processed within 3-5 business days. For queries, reply to this email.</p>
+    </div>
+    <div style="text-align:center;margin-top:28px">
+      <a href="https://green-valley-farm.online/" style="display:inline-block;background:linear-gradient(135deg,#1a4d2e,#2d7a4a);color:#fff;padding:12px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;margin-right:8px">🛒 Shop Again</a>
+      <a href="https://wa.me/919471800046?text=Hi!%20I%20need%20help%20with%20order%20${order.orderId}" style="display:inline-block;background:#25D366;color:#fff;padding:12px 24px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px">💬 Get Help</a>
+    </div>
   </td></tr>
-  <tr><td style="background:#f9f9f9;padding:16px;text-align:center;color:#aaa;font-size:12px">
-    Green Valley Poultry Farm &mdash; Farm-fresh, delivered with care
+  <tr><td style="padding:20px 40px;background:#f8faf8;text-align:center;border-top:1px solid #e8f0e8">
+    <p style="margin:0;color:#888;font-size:12px">Green Valley Poultry Farm — Fresh from our farm to your door 🌿</p>
+    <p style="margin:4px 0 0;color:#aaa;font-size:11px"><a href="https://green-valley-farm.online/" style="color:#1a4d2e;text-decoration:none">green-valley-farm.online</a></p>
   </td></tr>
 </table></td></tr></table></body></html>`;
 
@@ -1385,7 +1508,7 @@ const store = {
       ${itemRows}
     </table>
     <div style="margin-top:24px;text-align:center">
-      <a href="https://www.green-valley-farm.online/admin.html" style="background:#d4a745;color:#000;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block">View in Admin Dashboard</a>
+      <a href="https://green-valley-farm.online/admin.html" style="background:#d4a745;color:#000;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block">View in Admin Dashboard</a>
     </div>
   </td></tr>
 </table></td></tr></table></body></html>`;
@@ -1440,6 +1563,17 @@ const store = {
   },
 
   getAllOrders() { return orders; },
+
+  getCustomers() {
+    return users.map(u => ({
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      phone: u.phone,
+      role: u.role,
+      createdAt: u.createdAt
+    }));
+  },
 
   getOrderById(orderId) {
     const order = orders.find(o => o.orderId === orderId) || null;
@@ -1518,6 +1652,13 @@ const store = {
     order.statusHistory.push({ status, at: new Date().toISOString(), by: 'admin' });
     await db.saveData('orders', orders); // Explicitly lock update into MongoDB!
     await db.saveData('products', products);
+
+    // Send delivery email when order is delivered
+    if (status === 'delivered') {
+      const user = users.find(u => u.id === order.userId);
+      if (user?.email) sendDeliveryEmail(order, user.email).catch(() => {});
+    }
+
     return order;
   },
 
@@ -1573,6 +1714,183 @@ const store = {
           .reduce((sum, review) => sum + review.rating, 0) / reviews.filter(review => review.status === 'approved').length).toFixed(1))
         : 0
     };
+  },
+
+  // ══════ OFFER BROADCAST ══════
+  async broadcastOfferEmail(subject, message) {
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+      throw new Error('SMTP not configured. Cannot send emails.');
+    }
+
+    const verifiedSender = process.env.SMTP_FROM || process.env.SMTP_USER;
+    const fromAddr = `"Green Valley Farm" <${verifiedSender}>`;
+
+    // Get all customer emails (non-admin, verified users)
+    const customerEmails = users
+      .filter(u => u.role !== 'admin' && u.email && u.email.includes('@'))
+      .map(u => u.email);
+
+    if (customerEmails.length === 0) {
+      throw new Error('No customers found to send offer to');
+    }
+
+    // Convert plain text message to nicely formatted paragraphs
+    const messageParagraphs = message.split(/\n+/).map(p => p.trim()).filter(Boolean)
+      .map(p => `<p style="margin:0 0 12px;color:#333;font-size:15px;line-height:1.7;">${p}</p>`).join('');
+
+    // ── Build active coupons section ──
+    const now = new Date();
+    const activeCoupons = coupons.filter(c => c.active && (!c.expiresAt || new Date(c.expiresAt) > now) && (c.maxUses === 0 || c.usedCount < c.maxUses));
+    let couponSection = '';
+    if (activeCoupons.length > 0) {
+      const couponCards = activeCoupons.map(c => {
+        const discountText = c.type === 'percentage' ? `${c.value}% OFF` : `₹${c.value} OFF`;
+        const minText = c.minOrderAmount > 0 ? `Min order: ₹${c.minOrderAmount}` : 'No minimum';
+        const expiryText = c.expiresAt ? `Valid till ${new Date(c.expiresAt).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })}` : 'No expiry';
+        return `<td style="padding:6px;" width="50%" valign="top">
+  <div style="border:2px dashed #d4a745;border-radius:12px;padding:16px;text-align:center;background:#fffdf5;">
+    <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Use Code</div>
+    <div style="font-size:20px;font-weight:800;color:#1a4d2e;letter-spacing:2px;padding:8px 0;background:#e8f5e9;border-radius:8px;margin-bottom:8px;">${c.code}</div>
+    <div style="font-size:18px;font-weight:700;color:#d4a745;margin-bottom:6px;">${discountText}</div>
+    <div style="font-size:11px;color:#666;">${minText}</div>
+    <div style="font-size:10px;color:#999;margin-top:4px;">${expiryText}</div>
+  </div>
+</td>`;
+      }).join('');
+      // Arrange coupons in 2-column rows
+      let couponRows = '';
+      for (let i = 0; i < activeCoupons.length; i += 2) {
+        const card1 = couponCards.split('</td>')[i] + '</td>';
+        const card2 = i + 1 < activeCoupons.length ? couponCards.split('</td>')[i + 1] + '</td>' : '<td></td>';
+        couponRows += `<tr>${card1}${card2}</tr>`;
+      }
+      couponSection = `
+    <div style="margin-top:28px;padding-top:24px;border-top:1px solid #eee;">
+      <h3 style="margin:0 0 16px;font-size:17px;color:#1a4d2e;text-align:center;">🏷️ Active Coupons — Use at Checkout!</h3>
+      <table width="100%" cellpadding="0" cellspacing="0">${couponRows}</table>
+    </div>`;
+    }
+
+    const html = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f6f9f4;font-family:'Segoe UI',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:40px 16px;">
+<table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.08);">
+  <tr><td style="background:linear-gradient(135deg,#1a4d2e 0%,#2d7a4a 100%);padding:40px 40px 32px;text-align:center;">
+    <h1 style="margin:0;font-size:26px;color:#ffffff;font-weight:700;">🌿 Green Valley Farm</h1>
+    <p style="margin:8px 0 0;color:rgba(255,255,255,0.8);font-size:14px;">Farm-Fresh, Delivered with Care</p>
+  </td></tr>
+  <tr><td style="padding:36px 40px;">
+    <div style="background:linear-gradient(135deg,#fff9e6,#fff3cc);border-radius:12px;padding:24px;margin-bottom:28px;border-left:4px solid #d4a745;">
+      <h2 style="margin:0 0 4px;font-size:20px;color:#8b6914;">🎉 Special Offer!</h2>
+      <p style="margin:0;color:#9a7b1f;font-size:13px;">Exclusive deal from Green Valley Farm</p>
+    </div>
+    ${messageParagraphs}
+    ${couponSection}
+    <div style="text-align:center;margin-top:32px;">
+      <a href="https://green-valley-farm.online" style="display:inline-block;background:linear-gradient(135deg,#d4a745,#c49b38);color:#000;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;box-shadow:0 4px 16px rgba(212,167,69,0.3);">🛒 Shop Now & Use Coupon</a>
+    </div>
+  </td></tr>
+  <tr><td style="padding:20px 40px;background:#f8f9fa;text-align:center;">
+    <p style="margin:0;color:#888;font-size:12px;">Green Valley Poultry Farm | Fresh from our farm to your door</p>
+  </td></tr>
+</table></td></tr></table></body></html>`;
+
+    let sentCount = 0;
+    // Send in batches to avoid SMTP throttling
+    for (const email of customerEmails) {
+      try {
+        await mailer.sendMail({
+          from: fromAddr,
+          to: email,
+          subject: subject,
+          html: html
+        });
+        sentCount++;
+        console.log(`[Broadcast] Sent offer to ${email}`);
+      } catch (err) {
+        console.error(`[Broadcast] Failed to send to ${email}:`, err.message);
+      }
+    }
+
+    console.log(`[Broadcast] Complete: ${sentCount}/${customerEmails.length} emails sent`);
+    return { sentCount, totalCustomers: customerEmails.length };
+  },
+
+  // ══════ CUSTOMER MANAGEMENT ══════
+  getCustomers() {
+    return users
+      .filter(u => u.role !== 'admin')
+      .map(u => ({
+        id: u.id || u._id,
+        name: u.name,
+        email: u.email,
+        phone: u.phone || 'N/A',
+        createdAt: u.createdAt || new Date().toISOString()
+      }));
+  },
+
+  // ══════ COUPON MANAGEMENT ══════
+  getCoupons() { return coupons; },
+
+  createCoupon(data) {
+    const coupon = {
+      id: `coupon-${uuidv4().slice(0, 8)}`,
+      code: (data.code || '').trim().toUpperCase(),
+      type: data.type || 'percentage',
+      value: parseFloat(data.value) || 0,
+      minOrderAmount: parseFloat(data.minOrderAmount) || 0,
+      maxUses: parseInt(data.maxUses) || 0,
+      perUserLimit: parseInt(data.perUserLimit) || 1,
+      usedCount: 0,
+      usedBy: [],
+      expiresAt: data.expiresAt || null,
+      active: data.active !== false,
+      createdAt: new Date().toISOString()
+    };
+    if (!coupon.code) return { error: 'Coupon code is required' };
+    if (coupons.find(c => c.code === coupon.code)) return { error: 'Coupon code already exists' };
+    coupons.push(coupon);
+    db.saveData('coupons', coupons);
+    return { coupon };
+  },
+
+  updateCoupon(id, data) {
+    const coupon = coupons.find(c => c.id === id || String(c._id) === id);
+    if (!coupon) return { error: 'Coupon not found' };
+    if (data.code) coupon.code = data.code.trim().toUpperCase();
+    if (data.type) coupon.type = data.type;
+    if (data.value !== undefined) coupon.value = parseFloat(data.value);
+    if (data.minOrderAmount !== undefined) coupon.minOrderAmount = parseFloat(data.minOrderAmount);
+    if (data.maxUses !== undefined) coupon.maxUses = parseInt(data.maxUses);
+    if (data.perUserLimit !== undefined) coupon.perUserLimit = parseInt(data.perUserLimit);
+    if (data.expiresAt !== undefined) coupon.expiresAt = data.expiresAt;
+    if (data.active !== undefined) coupon.active = data.active;
+    db.saveData('coupons', coupons);
+    return { coupon };
+  },
+
+  deleteCoupon(id) {
+    const idx = coupons.findIndex(c => c.id === id || String(c._id) === id);
+    if (idx === -1) return { error: 'Coupon not found' };
+    coupons.splice(idx, 1);
+    db.saveData('coupons', coupons);
+    return { success: true };
+  },
+
+  validateCoupon(code, userId) {
+    const coupon = coupons.find(c => c.code === code.trim().toUpperCase() && c.active);
+    if (!coupon) return { error: 'Invalid or inactive coupon code' };
+    if (coupon.expiresAt && new Date(coupon.expiresAt) < new Date()) return { error: 'This coupon has expired' };
+    if (coupon.maxUses > 0 && coupon.usedCount >= coupon.maxUses) return { error: 'Coupon usage limit reached' };
+    if (userId && coupon.usedBy.includes(userId)) return { error: 'You have already used this coupon' };
+    return { coupon: { code: coupon.code, type: coupon.type, value: coupon.value, minOrderAmount: coupon.minOrderAmount } };
+  },
+
+  recordCouponUsage(code, userId) {
+    const coupon = coupons.find(c => c.code === code.trim().toUpperCase());
+    if (!coupon) return;
+    coupon.usedCount++;
+    if (userId && !coupon.usedBy.includes(userId)) coupon.usedBy.push(userId);
+    db.saveData('coupons', coupons);
   }
 };
 

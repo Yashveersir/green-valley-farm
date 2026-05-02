@@ -15,8 +15,18 @@ const App = {
   searchTimeout: null,
   googleClientId: '',
   googleButtonsRendered: false,
+  // Delivery & Coupon state
+  deliveryMap: null,
+  deliveryMarker: null,
+  deliveryCoords: null,
+  deliveryCharge: 0,
+  selectedTimeSlot: 'afternoon',
+  appliedCoupon: null,
+  couponDiscount: 0,
+  farmCoords: { lat: 26.2929, lng: 85.3947 },
 
   async init() {
+    this.runPreloader();
     this.bindEvents();
     document.body.dataset.page = this.currentPage;
     await this.checkAuth();
@@ -24,7 +34,33 @@ const App = {
     await this.openProductFromLocation();
     await this.initGoogleAuth();
     this.updateCartBadge();
+  },
+
+  runPreloader() {
+    const preloader = document.getElementById('gvf-preloader');
+    if (!preloader) { this.onPreloaderDone(); return; }
+
+    // Only show the full animation on the first visit per session
+    if (sessionStorage.getItem('gvf_preloader_shown')) {
+      preloader.remove();
+      this.onPreloaderDone();
+      return;
+    }
+
+    sessionStorage.setItem('gvf_preloader_shown', '1');
+    setTimeout(() => {
+      preloader.classList.add('fade-out');
+      setTimeout(() => {
+        preloader.remove();
+        this.onPreloaderDone();
+      }, 600);
+    }, 2200);
+  },
+
+  onPreloaderDone() {
     this.initCookieBanner();
+    const wa = document.getElementById('whatsapp-float');
+    if (wa) wa.style.display = 'flex';
   },
 
   // ── Auth ──
@@ -47,12 +83,14 @@ const App = {
   renderAuthUI(user) {
     const area = document.getElementById('auth-area');
     if (user) {
-      const initials = user.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+    const initials = user.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+      const adminLink = user.role === 'admin' ? `<a href="/admin.html" target="_blank" style="color:#d4a745;font-weight:600;">⚙️ Admin Dashboard</a>` : '';
       area.innerHTML = `
         <div class="user-menu">
           <div class="user-avatar" onclick="App.toggleUserMenu()" title="${user.name}">${initials}</div>
           <div class="user-dropdown" id="user-dropdown">
             <div class="user-dropdown-header"><strong>${user.name}</strong><span>${user.email}</span></div>
+            ${adminLink}
             <a href="#" onclick="App.openProfile();App.toggleUserMenu()">👤 Edit Profile</a>
             <a href="#" onclick="App.navigate('orders');App.toggleUserMenu()">📦 My Orders</a>
             <button class="logout-btn" onclick="App.handleLogout()">🚪 Logout</button>
@@ -731,6 +769,7 @@ const App = {
     document.getElementById('cookie-accept-btn')?.addEventListener('click', () => this.acceptCookieBanner());
     if (localStorage.getItem(this.cookieConsentKey)) return;
     banner.hidden = false;
+    banner.style.animation = 'preloaderSlideUp 0.5s ease-out';
   },
 
   hideCookieBanner() {
@@ -871,10 +910,21 @@ const App = {
       if (!cart.items.length) { this.navigate('home'); return; }
       const user = API.getUser();
       if (user) { document.getElementById('customer-name').value = user.name || ''; document.getElementById('customer-phone').value = user.phone || ''; }
-      document.getElementById('checkout-summary').innerHTML = `<h3 class="summary-title">Order Summary</h3>
-        ${cart.items.map(i => `<div class="summary-row"><span>${i.emoji} ${i.name} × ${i.quantity}</span><span>₹${i.subtotal}</span></div>`).join('')}
-        <div class="summary-row"><span>Delivery</span><span class="summary-delivery">FREE</span></div>
-        <div class="summary-row total"><span>Total</span><span>₹${cart.totalPrice}</span></div>`;
+      // Reset checkout state
+      this.appliedCoupon = null;
+      this.couponDiscount = 0;
+      this.deliveryCoords = null;
+      this.deliveryCharge = 0;
+      this.deliveryMarker = null;
+      this.deliveryMap = null;
+      this.selectedTimeSlot = 'afternoon';
+      document.querySelectorAll('.time-slot-btn').forEach(b => { b.classList.toggle('selected', b.dataset.slot === 'afternoon'); });
+      const resultEl = document.getElementById('coupon-result');
+      if (resultEl) resultEl.innerHTML = '';
+      const codeInput = document.getElementById('coupon-code-input');
+      if (codeInput) { codeInput.disabled = false; codeInput.value = ''; }
+      this.updateCheckoutTotals();
+      setTimeout(() => this.initDeliveryMap(), 200);
     } catch (err) { this.toast('Error loading summary', 'error'); }
   },
 
@@ -890,7 +940,12 @@ const App = {
       name: document.getElementById('customer-name').value,
       phone: document.getElementById('customer-phone').value,
       address: document.getElementById('customer-address').value,
-      paymentMethod
+      paymentMethod,
+      timeSlot: this.selectedTimeSlot,
+      deliveryCharge: this.deliveryCharge,
+      deliveryCoords: this.deliveryCoords,
+      couponCode: this.appliedCoupon?.code || null,
+      couponDiscount: this.couponDiscount
     };
     
     const btn = document.getElementById('place-order-btn');
@@ -898,7 +953,10 @@ const App = {
     try {
       if (paymentMethod === 'ONLINE') {
         const cartData = await API.getCart();
-        const totalPrice = cartData.cart.totalPrice;
+        const subtotal = cartData.cart.totalPrice;
+        const deliveryFree = (subtotal - this.couponDiscount) >= 400;
+        const finalDelivery = deliveryFree ? 0 : this.deliveryCharge;
+        const totalPrice = subtotal - this.couponDiscount + finalDelivery;
         if (totalPrice < 1) {
             this.toast('Order amount is too small for online payment.', 'error');
             btn.disabled = false; btn.innerHTML = '✓ Place Order';
@@ -1132,6 +1190,150 @@ const App = {
     } catch {}
   },
 
+  // ── Delivery Map ──
+  initDeliveryMap() {
+    if (this.deliveryMap) { this.deliveryMap.invalidateSize(); return; }
+    if (typeof L === 'undefined') return;
+    const mapEl = document.getElementById('delivery-map');
+    if (!mapEl) return;
+    this.deliveryMap = L.map('delivery-map').setView([this.farmCoords.lat, this.farmCoords.lng], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap'
+    }).addTo(this.deliveryMap);
+    L.marker([this.farmCoords.lat, this.farmCoords.lng], {
+      icon: L.divIcon({ className: 'farm-marker', html: '🐔', iconSize: [30, 30] })
+    }).addTo(this.deliveryMap).bindPopup('Green Valley Farm');
+    this.deliveryMap.on('click', (e) => this.setDeliveryLocation(e.latlng.lat, e.latlng.lng));
+    setTimeout(() => this.deliveryMap?.invalidateSize(), 300);
+  },
+
+  setDeliveryLocation(lat, lng) {
+    this.deliveryCoords = { lat, lng };
+    if (this.deliveryMarker) this.deliveryMap.removeLayer(this.deliveryMarker);
+    this.deliveryMarker = L.marker([lat, lng]).addTo(this.deliveryMap).bindPopup('Delivery here').openPopup();
+    this.deliveryMap.setView([lat, lng], 14);
+    this.calculateDeliveryCharge();
+    // Reverse geocode for address
+    fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`)
+      .then(r => r.json()).then(data => {
+        if (data?.display_name) {
+          const addr = document.getElementById('customer-address');
+          if (addr && !addr.value.trim()) addr.value = data.display_name;
+        }
+      }).catch(() => {});
+  },
+
+  calculateDeliveryCharge() {
+    if (!this.deliveryCoords) { this.deliveryCharge = 0; return; }
+    const R = 6371;
+    const dLat = (this.deliveryCoords.lat - this.farmCoords.lat) * Math.PI / 180;
+    const dLon = (this.deliveryCoords.lng - this.farmCoords.lng) * Math.PI / 180;
+    const a = Math.sin(dLat/2)**2 + Math.cos(this.farmCoords.lat*Math.PI/180) * Math.cos(this.deliveryCoords.lat*Math.PI/180) * Math.sin(dLon/2)**2;
+    const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    let charge = 0;
+    if (dist <= 5) charge = 30;
+    else if (dist <= 15) charge = 50;
+    else if (dist <= 30) charge = 80;
+    else charge = 120;
+    this.deliveryCharge = charge;
+    const infoEl = document.getElementById('delivery-charge-info');
+    const distEl = document.getElementById('delivery-distance-text');
+    const chargeEl = document.getElementById('delivery-charge-text');
+    if (infoEl) infoEl.style.display = 'flex';
+    if (distEl) distEl.textContent = `📏 Distance: ${dist.toFixed(1)} km`;
+    if (chargeEl) chargeEl.innerHTML = `<span class="charge-amount">₹${charge}</span>`;
+    this.updateCheckoutTotals();
+  },
+
+  async searchMapLocation() {
+    const q = document.getElementById('map-search-input')?.value?.trim();
+    if (!q) return;
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`);
+      const data = await res.json();
+      if (data?.[0]) {
+        this.setDeliveryLocation(parseFloat(data[0].lat), parseFloat(data[0].lon));
+      } else { this.toast('Location not found', 'error'); }
+    } catch { this.toast('Search failed', 'error'); }
+  },
+
+  useMyLocation() {
+    if (!navigator.geolocation) { this.toast('Geolocation not supported', 'error'); return; }
+    this.toast('Detecting your location...', 'success');
+    navigator.geolocation.getCurrentPosition(
+      (pos) => this.setDeliveryLocation(pos.coords.latitude, pos.coords.longitude),
+      (err) => {
+        const msgs = { 1: 'Location permission denied', 2: 'Location unavailable', 3: 'Location request timed out' };
+        this.toast(msgs[err.code] || 'Unable to get location', 'error');
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  },
+
+  selectTimeSlot(btn) {
+    document.querySelectorAll('.time-slot-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    this.selectedTimeSlot = btn.dataset.slot;
+  },
+
+  // ── Coupon ──
+  async applyCoupon() {
+    const code = document.getElementById('coupon-code-input')?.value?.trim().toUpperCase();
+    const resultEl = document.getElementById('coupon-result');
+    if (!code) { resultEl.innerHTML = '<p class="coupon-error">Enter a coupon code</p>'; return; }
+    try {
+      const data = await API.request(`/coupons/validate?code=${code}`);
+      if (data.error) { resultEl.innerHTML = `<p class="coupon-error">${data.error}</p>`; return; }
+      this.appliedCoupon = data.coupon;
+      resultEl.innerHTML = `<div class="coupon-applied"><span>✅ ${data.coupon.code} — ${data.coupon.type === 'percentage' ? data.coupon.value + '%' : '₹' + data.coupon.value} off</span><span class="coupon-remove" onclick="App.removeCoupon()">✕ Remove</span></div>`;
+      document.getElementById('coupon-code-input').disabled = true;
+      this.updateCheckoutTotals();
+    } catch (err) {
+      resultEl.innerHTML = `<p class="coupon-error">${err.message || 'Invalid coupon'}</p>`;
+    }
+  },
+
+  removeCoupon() {
+    this.appliedCoupon = null;
+    this.couponDiscount = 0;
+    document.getElementById('coupon-result').innerHTML = '';
+    document.getElementById('coupon-code-input').disabled = false;
+    document.getElementById('coupon-code-input').value = '';
+    this.updateCheckoutTotals();
+  },
+
+  async updateCheckoutTotals() {
+    try {
+      const data = await API.getCart();
+      const cart = data.cart;
+      let subtotal = cart.totalPrice;
+      let discount = 0;
+      if (this.appliedCoupon) {
+        if (this.appliedCoupon.minOrderAmount && subtotal < this.appliedCoupon.minOrderAmount) {
+          this.removeCoupon();
+          this.toast(`Min order ₹${this.appliedCoupon.minOrderAmount} required`, 'error');
+          return;
+        }
+        discount = this.appliedCoupon.type === 'percentage'
+          ? Math.round(subtotal * this.appliedCoupon.value / 100)
+          : this.appliedCoupon.value;
+        if (discount > subtotal) discount = subtotal;
+      }
+      this.couponDiscount = discount;
+      const deliveryFree = (subtotal - discount) >= 400;
+      const delivery = deliveryFree ? 0 : this.deliveryCharge;
+      const total = subtotal - discount + delivery;
+      const summaryEl = document.getElementById('checkout-summary');
+      if (!summaryEl) return;
+      summaryEl.innerHTML = `<h3 class="summary-title">Order Summary</h3>
+        ${cart.items.map(i => `<div class="summary-row"><span>${i.emoji} ${i.name} × ${i.quantity}</span><span>₹${i.subtotal}</span></div>`).join('')}
+        ${discount > 0 ? `<div class="summary-row" style="color:var(--success)"><span>🎟️ Coupon (${this.appliedCoupon.code})</span><span>−₹${discount}</span></div>` : ''}
+        <div class="summary-row"><span>🚚 Delivery</span><span class="${deliveryFree ? 'summary-delivery' : ''}">${deliveryFree ? 'FREE' : (delivery > 0 ? '₹' + delivery : 'Pin location')}</span></div>
+        ${deliveryFree ? '<div style="font-size:12px;color:var(--success);margin-bottom:8px">🎉 Free delivery on orders ₹400+</div>' : ''}
+        <div class="summary-row total"><span>Total</span><span>₹${total}</span></div>`;
+    } catch {}
+  },
+
   // ── Toast ──
   toast(message, type = 'success') {
     const container = document.getElementById('toast-container');
@@ -1146,3 +1348,4 @@ const App = {
 
 window.App = App;
 document.addEventListener('DOMContentLoaded', () => App.init());
+

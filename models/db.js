@@ -1,6 +1,8 @@
 const mongoose = require('mongoose');
 
 let isConnected = false;
+let connectPromise = null;
+const DB_CONNECT_TIMEOUT_MS = Number(process.env.DB_CONNECT_TIMEOUT_MS) || 5000;
 
 const schemaOptions = {
   strict: false,
@@ -81,21 +83,52 @@ function getModel(collectionName) {
 
 async function connectDB() {
   if (isConnected) return true;
+  if (connectPromise) return connectPromise;
   if (!process.env.MONGODB_URI) {
     console.log('[MongoDB] URI not found in .env, using memory storage only.');
     return false;
   }
+  connectPromise = connectWithTimeout();
+  return connectPromise;
+}
+
+async function connectWithTimeout() {
+  let timeoutId;
   try {
-    // Fix compatibility issues and prevent endless hanging if IPs are not whitelisted
-    await mongoose.connect(process.env.MONGODB_URI, {
-      serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
+    const timeout = new Promise((_, reject) => {
+      timeoutId = setTimeout(() => {
+        reject(new Error(`MongoDB connection timed out after ${DB_CONNECT_TIMEOUT_MS}ms`));
+      }, DB_CONNECT_TIMEOUT_MS);
     });
-    isConnected = true;
+
+    // Fix compatibility issues and prevent endless hanging if IPs are not whitelisted
+    await Promise.race([
+      mongoose.connect(process.env.MONGODB_URI, {
+        serverSelectionTimeoutMS: DB_CONNECT_TIMEOUT_MS,
+        connectTimeoutMS: DB_CONNECT_TIMEOUT_MS,
+        socketTimeoutMS: DB_CONNECT_TIMEOUT_MS,
+        family: 4,
+      }),
+      timeout
+    ]);
+
+    isConnected = mongoose.connection.readyState === 1;
     console.log('✅ Connected to MongoDB Backend');
-    return true;
+    return isConnected;
   } catch (err) {
+    isConnected = false;
     console.error('❌ MongoDB Connection Error:', err.message);
+    try {
+      mongoose.connection.close(true).catch(disconnectErr => {
+        console.error('[MongoDB] Disconnect cleanup failed:', disconnectErr.message);
+      });
+    } catch (disconnectErr) {
+      console.error('[MongoDB] Disconnect cleanup failed:', disconnectErr.message);
+    }
     return false;
+  } finally {
+    clearTimeout(timeoutId);
+    if (!isConnected) connectPromise = null;
   }
 }
 
@@ -112,7 +145,11 @@ async function loadData(collectionName) {
   
   if (!data || data.length === 0) return null;
   // Remove native mongodb _id wrapper fields when passing back to memory
-  return data.map(({ _id, ...rest }) => rest);
+  // If a doc has _id but no custom 'id', preserve _id as 'id'
+  return data.map(({ _id, ...rest }) => {
+    if (!rest.id && _id) rest.id = _id.toString();
+    return rest;
+  });
 }
 
 async function saveData(collectionName, data) {
@@ -127,7 +164,7 @@ async function saveData(collectionName, data) {
   }
 
   // Check if data is array
-  if (Array.isArray(data) && data.length > 0) {
+  if (Array.isArray(data)) {
     // To make it viewable in Compass like a normal Database without complex diffing,
     // we mirror our synchronized memory array directly into the Atlas collection!
     for (const item of data) {
@@ -138,7 +175,9 @@ async function saveData(collectionName, data) {
       }
     }
     await Model.deleteMany({});
-    await Model.insertMany(data).catch(console.error);
+    if (data.length > 0) {
+      await Model.insertMany(data).catch(console.error);
+    }
   }
 }
 

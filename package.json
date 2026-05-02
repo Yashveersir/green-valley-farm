@@ -22,5 +22,8 @@
     "razorpay": "^2.9.6",
     "twilio": "^5.13.1",
     "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "sharp": "^0.34.5"
   }
 }

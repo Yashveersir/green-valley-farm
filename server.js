@@ -30,12 +30,12 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://accounts.google.com", "https://accounts.google.com/gsi/client", "https://checkout.razorpay.com", "https://cdn.razorpay.com", "https://checkout-static-next.razorpay.com", "https://www.googletagmanager.com", "https://www.google-analytics.com"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://accounts.google.com", "https://accounts.google.com/gsi/client", "https://checkout.razorpay.com", "https://cdn.razorpay.com", "https://checkout-static-next.razorpay.com", "https://www.googletagmanager.com", "https://www.google-analytics.com", "https://unpkg.com"],
       scriptSrcAttr: ["'unsafe-inline'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://accounts.google.com", "https://accounts.google.com/gsi/style"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://accounts.google.com", "https://accounts.google.com/gsi/style", "https://unpkg.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:", "blob:", "https:", "http:"],
-      connectSrc: ["'self'", "https://accounts.google.com", "https://accounts.google.com/gsi/", "https://api.razorpay.com", "https://lux-gateway.razorpay.com", "https://lumberjack.razorpay.com", "https://cdn.razorpay.com", "https://checkout-static-next.razorpay.com", "https://www.google-analytics.com", "https://oauth2.googleapis.com"],
+      imgSrc: ["'self'", "data:", "blob:", "https:", "http:", "https://*.tile.openstreetmap.org"],
+      connectSrc: ["'self'", "https://accounts.google.com", "https://accounts.google.com/gsi/", "https://api.razorpay.com", "https://lux-gateway.razorpay.com", "https://lumberjack.razorpay.com", "https://cdn.razorpay.com", "https://checkout-static-next.razorpay.com", "https://www.google-analytics.com", "https://oauth2.googleapis.com", "https://nominatim.openstreetmap.org"],
       frameSrc: ["'self'", "https://accounts.google.com", "https://accounts.google.com/gsi/", "https://api.razorpay.com"],
       objectSrc: ["'none'"],
       upgradeInsecureRequests: [],
@@ -200,6 +200,7 @@ async function authMiddleware(req, res, next) {
 
 // Admin-only middleware
 function adminOnly(req, res, next) {
+  if (!req.user) return res.status(401).json({ success: false, error: 'Authentication required' });
   if (req.userRole !== 'admin') return res.status(403).json({ success: false, error: 'Admin access required' });
   next();
 }
@@ -222,6 +223,17 @@ app.use('/api/products', productsRouter);
 app.use('/api/cart', cartRouter);
 app.use('/api/orders', ordersRouter);
 app.use('/api/payments', paymentLimiter, paymentsRouter);
+
+// Public coupon validation (authenticated users)
+app.get('/api/coupons/validate', (req, res) => {
+  const code = req.query.code;
+  if (!code) return res.status(400).json({ error: 'Coupon code required' });
+  const userId = req.user?.id || req.user?._id;
+  const result = store.validateCoupon(code, userId);
+  if (result.error) return res.json({ error: result.error });
+  res.json({ success: true, coupon: result.coupon });
+});
+
 app.use('/api/admin', adminOnly, adminRouter);
 
 // ── Health Check (for uptime monitoring) ──
