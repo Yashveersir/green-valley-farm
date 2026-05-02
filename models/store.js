@@ -672,6 +672,13 @@ async function persistCoupon(coupon) {
   return coupon;
 }
 
+async function refreshProductsFromDb() {
+  if (!isMongoReady()) return products;
+  const savedProducts = await db.loadData('products');
+  if (savedProducts) products = savedProducts.map(normalizeProduct);
+  return products;
+}
+
 products = products.map(normalizeProduct);
 
 const store = {
@@ -1027,6 +1034,11 @@ const store = {
   },
 
   // ══════ PRODUCTS ══════
+  async refreshProducts() {
+    await refreshProductsFromDb();
+    return products;
+  },
+
   getAllProducts(category = null, options = {}) {
     const search = sanitizeText(options.search || '', 120).toLowerCase();
     const sort = sanitizeText(options.sort || 'featured', 20);
@@ -1067,6 +1079,7 @@ const store = {
   },
 
   async addProduct(data) {
+    await this.refreshProducts();
     const product = normalizeProduct({
       id: `prod-${uuidv4().slice(0, 6)}`,
       name: data.name,
@@ -1088,6 +1101,7 @@ const store = {
   },
 
   async updateProduct(id, data) {
+    await this.refreshProducts();
     const p = products.find(p => p.id === id);
     if (!p) return { error: 'Product not found' };
     const originalName = p.name;
@@ -1108,6 +1122,7 @@ const store = {
   },
 
   async deleteProduct(id) {
+    await this.refreshProducts();
     const idx = products.findIndex(p => p.id === id);
     if (idx === -1) return { error: 'Product not found' };
     products.splice(idx, 1);

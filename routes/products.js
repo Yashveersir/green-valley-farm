@@ -2,8 +2,16 @@ const express = require('express');
 const router = express.Router();
 const store = require('../models/store');
 
+function preventProductCache(res) {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+}
+
 // GET /api/products
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
+  preventProductCache(res);
+  await store.refreshProducts();
   const { category, search, sort, minRating } = req.query;
   const products = search
     ? store.searchProducts(search)
@@ -12,14 +20,18 @@ router.get('/', (req, res) => {
 });
 
 // GET /api/products/:id
-router.get('/:id', (req, res) => {
+router.get('/:id', async (req, res) => {
+  preventProductCache(res);
+  await store.refreshProducts();
   const product = store.getProductById(req.params.id);
   if (!product) return res.status(404).json({ success: false, error: 'Product not found' });
   res.json({ success: true, product });
 });
 
 // GET /api/products/:id/reviews
-router.get('/:id/reviews', (req, res) => {
+router.get('/:id/reviews', async (req, res) => {
+  preventProductCache(res);
+  await store.refreshProducts();
   const product = store.getProductById(req.params.id);
   if (!product) return res.status(404).json({ success: false, error: 'Product not found' });
   const reviews = store.getProductReviews(req.params.id, req.query);

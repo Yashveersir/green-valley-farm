@@ -13,6 +13,7 @@ router.post('/', async (req, res) => {
   const userId = req.userId || 'guest';
   const { productId, quantity } = req.body;
   if (!productId) return res.status(400).json({ success: false, error: 'productId is required' });
+  await store.refreshProducts();
   const result = await store.addToCart(userId, productId, quantity || 1);
   if (result.error) return res.status(400).json({ success: false, error: result.error });
   res.json({ success: true, cart: result });
@@ -23,6 +24,7 @@ router.put('/:cartItemId', async (req, res) => {
   const userId = req.userId || 'guest';
   const { quantity } = req.body;
   if (typeof quantity !== 'number') return res.status(400).json({ success: false, error: 'quantity required' });
+  await store.refreshProducts();
   const result = await store.updateCartItem(userId, req.params.cartItemId, quantity);
   if (result.error) return res.status(400).json({ success: false, error: result.error });
   res.json({ success: true, cart: result });

@@ -145,8 +145,9 @@ function getVerificationMetaTags() {
   return tags;
 }
 
-function buildSitemapXml() {
+async function buildSitemapXml() {
   const staticPaths = ['/', '/privacy.html', '/terms.html'];
+  await store.refreshProducts();
   const productPaths = store.getAllProducts().map(product => `/products/${product.slug}`);
   const urls = [...staticPaths, ...productPaths];
   const lastmod = new Date().toISOString();
@@ -410,8 +411,8 @@ app.get('/robots.txt', (req, res) => {
   ].join('\n'));
 });
 
-app.get('/sitemap.xml', (req, res) => {
-  res.type('application/xml').send(buildSitemapXml());
+app.get('/sitemap.xml', async (req, res) => {
+  res.type('application/xml').send(await buildSitemapXml());
 });
 
 app.get('/BingSiteAuth.xml', (req, res) => {

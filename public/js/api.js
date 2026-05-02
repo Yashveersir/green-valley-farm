@@ -42,7 +42,7 @@ const API = {
     const headers = { 'Content-Type': 'application/json' };
     const token = this.getToken();
     if (token) headers['Authorization'] = `Bearer ${token}`;
-    const res = await fetch(`${this.BASE}${endpoint}`, { headers, ...options });
+    const res = await fetch(`${this.BASE}${endpoint}`, { cache: 'no-store', headers, ...options });
     const data = await res.json().catch(() => ({}));
     return { res, data };
   },
