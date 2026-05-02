@@ -45,6 +45,8 @@ const App = {
       });
     }
 
+    this.setInstallButtonsVisible(!this.isPwaInstalled());
+
     window.addEventListener('beforeinstallprompt', event => {
       event.preventDefault();
       this.appInstallPrompt = event;
@@ -57,9 +59,13 @@ const App = {
       this.toast('App installed successfully!', 'success');
     });
 
-    if (window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone) {
+    if (this.isPwaInstalled()) {
       this.setInstallButtonsVisible(false);
     }
+  },
+
+  isPwaInstalled() {
+    return Boolean(window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone);
   },
 
   setInstallButtonsVisible(visible) {
@@ -71,7 +77,10 @@ const App = {
 
   async installPwa() {
     if (!this.appInstallPrompt) {
-      this.toast('Use your browser menu to add Green Valley to your home screen.', 'success');
+      const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent || '');
+      this.toast(isIos
+        ? 'Tap Share, then Add to Home Screen.'
+        : 'Use your browser menu to install or add Green Valley to your home screen.', 'success');
       return;
     }
 
