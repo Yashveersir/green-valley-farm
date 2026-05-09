@@ -13,7 +13,15 @@ const REFRESH_TOKEN_EXPIRES_IN = process.env.REFRESH_TOKEN_EXPIRES_IN || '30d';
 const BCRYPT_ROUNDS = Number(process.env.BCRYPT_ROUNDS) || 12;
 
 function getAuthSecret() {
-  return process.env.JWT_SECRET || process.env.MONGODB_URI || 'greenvalley-dev-secret-change-me';
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('JWT_SECRET environment variable is required in production. Set it in your hosting platform.');
+    }
+    // Dev-only fallback — never used in production
+    return 'greenvalley-dev-secret-change-me-in-env';
+  }
+  return secret;
 }
 
 // Legacy stateless token helpers kept only so existing signed-in users are not forced out.
@@ -206,12 +214,14 @@ let cartActivity = {}; // userId -> abandoned cart reminder metadata
 let orders = [];
 let notifications = [];
 let reviews = [];
+// ✅ SECURITY: Passwords are NEVER stored in source code.
+// Set ADMIN1_PASSWORD and ADMIN2_PASSWORD in your .env / hosting platform env vars.
+// The startup routine (ensureAllUserPasswordHashes) bcrypt-hashes them at first boot.
 let users = [
   {
     id: 'admin-001',
     name: 'Farm Admin',
     email: 'sales.greenvalleyfarm@gmail.com',
-    password: 'REDACTED',
     phone: '+91 9471800046',
     role: 'admin',
     createdAt: new Date().toISOString()
@@ -220,16 +230,16 @@ let users = [
     id: 'admin-002',
     name: 'Anjiv Singh',
     email: 'REDACTED@gmail.com',
-    password: 'REDACTED',
     phone: '+91 9471800046',
     role: 'admin',
     createdAt: new Date().toISOString()
   }
 ];
 let pendingOtps = {}; // email -> { otp, payload, expires }
+// Admin seed passwords are read ONLY from environment variables — never hardcoded here.
 const SEEDED_ADMIN_PASSWORDS = {
-  'sales.greenvalleyfarm@gmail.com': 'REDACTED',
-  'REDACTED@gmail.com': 'REDACTED'
+  'sales.greenvalleyfarm@gmail.com': process.env.ADMIN1_PASSWORD || '',
+  'REDACTED@gmail.com': process.env.ADMIN2_PASSWORD || ''
 };
 const ORDER_STATUSES = ['confirmed', 'processing', 'dispatched', 'delivered', 'cancelled'];
 const CUSTOMER_CANCELLABLE_STATUSES = ['confirmed', 'processing'];

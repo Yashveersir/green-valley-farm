@@ -102,7 +102,9 @@ router.post('/broadcast-offer', async (req, res) => {
     const result = await store.broadcastOfferEmail(subject, message);
     res.json({ success: true, sentCount: result.sentCount });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message || 'Failed to send broadcast' });
+    // ✅ Log full error server-side; return generic message to client (no stack traces or internal paths)
+    console.error('[Admin] Broadcast offer error:', err);
+    res.status(500).json({ success: false, error: 'Failed to send broadcast email. Please try again or check server logs.' });
   }
 });
 

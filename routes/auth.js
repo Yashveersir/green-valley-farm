@@ -27,7 +27,7 @@ router.get('/config', (req, res) => {
   res.json({
     success: true,
     googleClientId: process.env.GOOGLE_CLIENT_ID || '',
-    razorpayKeyId: process.env.RAZORPAY_KEY_ID || ''
+    razorpayKeyId: process.env.RAZORPAY_KEY_ID || '' // ✅ Publishable key — intentionally exposed to frontend (not a secret)
   });
 });
 
@@ -54,7 +54,7 @@ router.post('/reset-password', async (req, res) => {
   const { email, otp, newPassword, otpToken } = req.body;
   if (!email || !otp || !newPassword) return res.status(400).json({ success: false, error: 'Email, OTP, and new Password required' });
   
-  if (newPassword.length < 6) return res.status(400).json({ success: false, error: 'Password must be at least 6 characters' });
+  if (newPassword.length < 8) return res.status(400).json({ success: false, error: 'Password must be at least 8 characters' });
 
   // Leverage the existing logic; we verify the OTP the exact same way
   const result = await store.verifyAuthOtp(email, otp, otpToken);
@@ -135,7 +135,7 @@ router.put('/profile', async (req, res) => {
   
   const { name, phone, newPassword } = req.body;
   if (!name || !phone) return res.status(400).json({ success: false, error: 'Name and phone required' });
-  if (newPassword && newPassword.length < 6) return res.status(400).json({ success: false, error: 'Password must be at least 6 characters' });
+  if (newPassword && newPassword.length < 8) return res.status(400).json({ success: false, error: 'Password must be at least 8 characters' });
   
   const result = await store.updateUserProfile(user.id, { name, phone, newPassword });
   if (result.error) return res.status(400).json({ success: false, error: result.error });

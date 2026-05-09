@@ -285,8 +285,8 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Status & Diagnosis Route (non-blocking, instant response)
-app.get('/api/status', (req, res) => {
+// Status & Diagnosis Route — admin-only to prevent env var info leak
+app.get('/api/status', adminOnly, (req, res) => {
   res.json({
     server: 'Running ✅',
     env_mongodb_uri: process.env.MONGODB_URI ? 'Present ✅' : 'NOT FOUND ❌',
@@ -302,8 +302,8 @@ app.get('/api/status', (req, res) => {
   });
 });
 
-// DB Test endpoint - shows the exact MongoDB error
-app.get('/api/db-test', async (req, res) => {
+// DB Test endpoint — admin-only to prevent raw MongoDB error info from leaking publicly
+app.get('/api/db-test', adminOnly, async (req, res) => {
   try {
     const mongoose = require('mongoose');
     if (mongoose.connection.readyState === 1) {
@@ -312,6 +312,8 @@ app.get('/api/db-test', async (req, res) => {
     await mongoose.connect(process.env.MONGODB_URI, { serverSelectionTimeoutMS: 5000 });
     res.json({ status: 'Connected successfully ✅' });
   } catch (err) {
+    // Log full error server-side only — do not change the response (admin already authenticated)
+    console.error('[DB Test] Connection error:', err.message);
     res.json({ 
       status: 'FAILED ❌', 
       error: err.message,
