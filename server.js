@@ -445,6 +445,14 @@ app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin2.html'));
 });
 
+app.get('/api/debug-deploy', (req, res) => {
+  res.json({
+    version: '2026-05-16-v3',
+    message: 'If you see this, the latest server.js is deployed.',
+    adminFile: 'admin2.html'
+  });
+});
+
 // ── Global Error Handling Middleware ──
 app.use((err, req, res, next) => {
   console.error('[Global Error]:', err.stack || err.message);
