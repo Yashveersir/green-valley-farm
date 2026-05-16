@@ -440,7 +440,10 @@ app.get('/products/:slug', (req, res) => {
   res.send(renderProductPage(product));
 });
 app.get('/', (req, res) => res.send(renderHomePage()));
-app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
+app.get('/admin', (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
 
 // ── Global Error Handling Middleware ──
 app.use((err, req, res, next) => {
