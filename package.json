@@ -1,6 +1,6 @@
 {
   "name": "green-valley-poultry-farm",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A premium poultry farm application for browsing and ordering fresh poultry products",
   "main": "server.js",
   "scripts": {
