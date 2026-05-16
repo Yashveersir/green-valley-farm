@@ -282,6 +282,10 @@ app.post('/api/jobs/abandoned-carts', runAbandonedCartJob);
 app.use('/api/admin', adminOnly, adminRouter);
 
 // ── Health Check (for uptime monitoring) ──
+app.get('/api/gvf-test', (req, res) => {
+  res.json({ success: true, message: 'Latest code is live!', timestamp: Date.now() });
+});
+
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
