@@ -38,5 +38,13 @@ Thumbs.db
 *.sln
 *.sw?
 
-# ECC Installer
+# ECC Installer & State
 everything-claude-code/
+.gemini/ecc-install-state.json
+
+# Temporary / Local Scripts
+tmp_test.js
+compress-images.js
+scripts/admin-check.js
+scripts/deep-check.js
+scripts/fix-orders.js

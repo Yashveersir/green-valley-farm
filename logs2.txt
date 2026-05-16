@@ -1,2 +1,0 @@
-﻿Need to install the following packages:
-vercel@50.40.0
