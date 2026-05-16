@@ -24,6 +24,7 @@ logs2.txt
 tmp/
 .cache/
 .vercel/
+backups/
 
 # OS files
 .DS_Store
@@ -44,6 +45,7 @@ everything-claude-code/
 
 # Temporary / Local Scripts
 tmp_test.js
+check-deploy.js
 compress-images.js
 scripts/admin-check.js
 scripts/deep-check.js

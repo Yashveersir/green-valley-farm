@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "smoke:prod": "node scripts/production-smoke.js"
+    "smoke:prod": "node scripts/production-smoke.js",
+    "backup:db": "node scripts/backup-db.js",
+    "reset:orders": "node scripts/reset-order-history.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
