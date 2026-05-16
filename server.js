@@ -444,7 +444,10 @@ app.get('/products/:slug', (req, res) => {
   if (!product) return res.status(404).sendFile(indexHtmlPath);
   res.send(renderProductPage(product));
 });
-app.get('/', (req, res) => res.send(renderHomePage()));
+app.get('/', (req, res) => {
+  res.set('X-GVF-Deploy-ID', '20260516-final-check');
+  res.send(renderHomePage());
+});
 app.get('/admin', (req, res) => {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
