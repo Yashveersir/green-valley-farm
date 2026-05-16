@@ -3,7 +3,7 @@
   "crons": [
     {
       "path": "/api/jobs/abandoned-carts",
-      "schedule": "0 * * * *"
+      "schedule": "0 0 * * *"
     }
   ],
   "builds": [
