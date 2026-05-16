@@ -442,7 +442,7 @@ app.get('/products/:slug', (req, res) => {
 app.get('/', (req, res) => res.send(renderHomePage()));
 app.get('/admin', (req, res) => {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-  res.sendFile(path.join(__dirname, 'public', 'admin2.html'));
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
 app.get('/api/debug-deploy', (req, res) => {
