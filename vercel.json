@@ -8,7 +8,7 @@
   ],
   "builds": [
     {
-      "src": "server.js",
+      "src": "server_gvf.js",
       "use": "@vercel/node",
       "config": {
         "includeFiles": [
@@ -23,42 +23,42 @@
   "routes": [
     {
       "src": "/",
-      "dest": "server.js"
+      "dest": "server_gvf.js"
     },
     {
       "src": "/api/(.*)",
-      "dest": "server.js"
+      "dest": "server_gvf.js"
     },
     {
       "src": "/products/(.*)",
-      "dest": "server.js"
+      "dest": "server_gvf.js"
     },
     {
       "src": "/robots.txt",
-      "dest": "server.js"
+      "dest": "server_gvf.js"
     },
     {
       "src": "/sitemap.xml",
-      "dest": "server.js"
+      "dest": "server_gvf.js"
     },
     {
       "src": "/BingSiteAuth.xml",
-      "dest": "server.js"
+      "dest": "server_gvf.js"
     },
     {
       "src": "/[^/]+\\.txt",
-      "dest": "server.js"
+      "dest": "server_gvf.js"
     },
     {
       "src": "/admin",
-      "dest": "server.js"
+      "dest": "server_gvf.js"
     },
     {
       "handle": "filesystem"
     },
     {
       "src": "/(.*)",
-      "dest": "server.js"
+      "dest": "server_gvf.js"
     }
   ]
 }
