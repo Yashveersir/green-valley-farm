@@ -1724,7 +1724,7 @@ const store = {
       ${itemRows}
     </table>
     <div style="margin-top:24px;text-align:center">
-      <a href="https://green-valley-farm.online/admin.html" style="background:#d4a745;color:#000;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block">View in Admin Dashboard</a>
+      <a href="https://green-valley-farm.online/admin" style="background:#d4a745;color:#000;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block">View in Admin Dashboard</a>
     </div>
   </td></tr>
 </table></td></tr></table></body></html>`;
@@ -1831,7 +1831,7 @@ const store = {
       ${itemRows}
     </table>
     <div style="margin-top:24px;text-align:center">
-      <a href="https://green-valley-farm.online/admin.html" style="background:#d4a745;color:#000;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block">View in Admin Dashboard</a>
+      <a href="https://green-valley-farm.online/admin" style="background:#d4a745;color:#000;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block">View in Admin Dashboard</a>
     </div>
   </td></tr>
 </table></td></tr></table></body></html>`;

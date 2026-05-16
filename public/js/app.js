@@ -164,7 +164,7 @@ const App = {
     const area = document.getElementById('auth-area');
     if (user) {
     const initials = user.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
-      const adminLink = user.role === 'admin' ? `<a href="/admin.html" target="_blank" style="color:#d4a745;font-weight:600;">⚙️ Admin Dashboard</a>` : '';
+      const adminLink = user.role === 'admin' ? `<a href="/admin" target="_blank" style="color:#d4a745;font-weight:600;">⚙️ Admin Dashboard</a>` : '';
       area.innerHTML = `
         <div class="user-menu">
           <div class="user-avatar" onclick="App.toggleUserMenu()" title="${user.name}">${initials}</div>
