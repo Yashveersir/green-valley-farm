@@ -18,7 +18,7 @@
     "express-rate-limit": "^8.4.1",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
-    "mongoose": "^9.4.1",
+    "mongoose": "9.4.1",
     "nodemailer": "^8.0.4",
     "razorpay": "^2.9.6",
     "twilio": "^5.13.1",
