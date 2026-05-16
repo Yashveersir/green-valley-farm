@@ -2,10 +2,10 @@
   "name": "green-valley-poultry-farm",
   "version": "1.0.1",
   "description": "A premium poultry farm application for browsing and ordering fresh poultry products",
-  "main": "server_gvf.js",
+  "main": "server.js",
   "scripts": {
-    "start": "node server_gvf.js",
-    "dev": "node server_gvf.js",
+    "start": "node server.js",
+    "dev": "node server.js",
     "smoke:prod": "node scripts/production-smoke.js"
   },
   "dependencies": {
