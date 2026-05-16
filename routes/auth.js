@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const store = require('../models/store');
+const { requireAuth } = require('../middleware/auth');
 
 async function verifyGoogleCredential(credential) {
   if (!process.env.GOOGLE_CLIENT_ID) {
@@ -100,12 +101,8 @@ router.post('/google', async (req, res) => {
 });
 
 // GET /api/auth/me
-router.get('/me', async (req, res) => {
-  const token = req.headers.authorization?.replace('Bearer ', '');
-  if (!token) return res.status(401).json({ success: false, error: 'Not authenticated' });
-  const user = await store.verifyToken(token);
-  if (!user) return res.status(401).json({ success: false, error: 'Invalid token' });
-  res.json({ success: true, user });
+router.get('/me', requireAuth, (req, res) => {
+  res.json({ success: true, user: req.user });
 });
 
 // POST /api/auth/refresh
@@ -127,17 +124,12 @@ router.post('/logout', async (req, res) => {
 });
 
 // PUT /api/auth/profile
-router.put('/profile', async (req, res) => {
-  const token = req.headers.authorization?.replace('Bearer ', '');
-  if (!token) return res.status(401).json({ success: false, error: 'Not authenticated' });
-  const user = await store.verifyToken(token);
-  if (!user) return res.status(401).json({ success: false, error: 'Invalid token' });
-  
+router.put('/profile', requireAuth, async (req, res) => {
   const { name, phone, newPassword } = req.body;
   if (!name || !phone) return res.status(400).json({ success: false, error: 'Name and phone required' });
   if (newPassword && newPassword.length < 8) return res.status(400).json({ success: false, error: 'Password must be at least 8 characters' });
   
-  const result = await store.updateUserProfile(user.id, { name, phone, newPassword });
+  const result = await store.updateUserProfile(req.userId, { name, phone, newPassword });
   if (result.error) return res.status(400).json({ success: false, error: result.error });
   res.json({ success: true, user: result.user });
 });

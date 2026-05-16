@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const store = require('../models/store');
+const { requireAuth } = require('../middleware/auth');
 
 function preventProductCache(res) {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
@@ -50,8 +51,7 @@ router.get('/:id/reviews', async (req, res) => {
 });
 
 // POST /api/products/:id/reviews
-router.post('/:id/reviews', async (req, res) => {
-  if (!req.userId) return res.status(401).json({ success: false, error: 'Login required to submit a review' });
+router.post('/:id/reviews', requireAuth, async (req, res) => {
   const result = await store.addReview(req.userId, req.params.id, req.body);
   if (result.error) {
     const statusCode = result.error.includes('not found') ? 404 : 400;
@@ -61,8 +61,7 @@ router.post('/:id/reviews', async (req, res) => {
 });
 
 // PUT /api/products/:id/reviews
-router.put('/:id/reviews', async (req, res) => {
-  if (!req.userId) return res.status(401).json({ success: false, error: 'Login required to update a review' });
+router.put('/:id/reviews', requireAuth, async (req, res) => {
   const result = await store.updateReview(req.userId, req.params.id, req.body);
   if (result.error) {
     const statusCode = result.error.includes('not found') ? 404 : 400;
@@ -72,8 +71,7 @@ router.put('/:id/reviews', async (req, res) => {
 });
 
 // DELETE /api/products/:id/reviews
-router.delete('/:id/reviews', async (req, res) => {
-  if (!req.userId) return res.status(401).json({ success: false, error: 'Login required to delete a review' });
+router.delete('/:id/reviews', requireAuth, async (req, res) => {
   const result = await store.deleteReview(req.userId, req.params.id);
   if (result.error) {
     const statusCode = result.error.includes('not found') ? 404 : 400;

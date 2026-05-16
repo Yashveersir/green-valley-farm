@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+require('express-async-errors');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
@@ -201,7 +202,7 @@ async function ensureInit(req, res, next) {
 
 // Auth middleware — attaches userId to req if valid token present
 async function authMiddleware(req, res, next) {
-  const token = req.headers.authorization?.replace('Bearer ', '');
+  const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
   if (token) {
     const user = await store.verifyToken(token);
     if (user) { req.userId = user.id; req.userRole = user.role; req.user = user; }
@@ -213,6 +214,11 @@ async function authMiddleware(req, res, next) {
 function adminOnly(req, res, next) {
   if (!req.user) return res.status(401).json({ success: false, error: 'Authentication required' });
   if (req.userRole !== 'admin') return res.status(403).json({ success: false, error: 'Admin access required' });
+  next();
+}
+
+function requireAuth(req, res, next) {
+  if (!req.userId) return res.status(401).json({ success: false, error: 'Login required' });
   next();
 }
 
@@ -232,8 +238,8 @@ app.use('/api/products/:id/reviews', reviewLimiter);
 app.use('/api/products', adminProductMutationsOnly);
 app.use('/api/products', productsRouter);
 app.use('/api/cart', cartRouter);
-app.use('/api/orders', ordersRouter);
-app.use('/api/payments', paymentLimiter, paymentsRouter);
+app.use('/api/orders', requireAuth, ordersRouter);
+app.use('/api/payments', paymentLimiter, requireAuth, paymentsRouter);
 
 // Public coupon validation (authenticated users)
 app.get('/api/coupons/validate', async (req, res) => {
@@ -435,6 +441,20 @@ app.get('/products/:slug', (req, res) => {
 });
 app.get('/', (req, res) => res.send(renderHomePage()));
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
+
+// ── Global Error Handling Middleware ──
+app.use((err, req, res, next) => {
+  console.error('[Global Error]:', err.stack || err.message);
+  
+  if (req.path.startsWith('/api/')) {
+    return res.status(err.status || 500).json({
+      success: false,
+      error: process.env.NODE_ENV === 'production' ? 'Internal Server Error' : err.message
+    });
+  }
+  
+  res.status(500).send('Something went wrong. Please try again later.');
+});
 
 // Start local server only if NOT running on Vercel
 if (!process.env.VERCEL) {

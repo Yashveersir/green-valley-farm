@@ -21,7 +21,6 @@ function razorpayConfigured() {
 // POST /api/payments/create-order
 router.post('/create-order', async (req, res) => {
   const userId = req.userId;
-  if (!userId) return res.status(401).json({ success: false, error: 'Login required' });
   if (!razorpayConfigured()) {
     return res.status(503).json({ success: false, error: 'Online payment is not configured' });
   }
@@ -47,7 +46,6 @@ router.post('/create-order', async (req, res) => {
 // POST /api/payments/verify-payment
 router.post('/verify-payment', async (req, res) => {
   const userId = req.userId;
-  if (!userId) return res.status(401).json({ success: false, error: 'Login required' });
   if (!process.env.RAZORPAY_KEY_SECRET) {
     return res.status(503).json({ success: false, error: 'Online payment is not configured' });
   }

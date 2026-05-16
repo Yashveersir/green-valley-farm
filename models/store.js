@@ -1545,6 +1545,85 @@ const store = {
       `<tr><td style="padding:8px;border-bottom:1px solid #f0f0f0">${i.name}</td><td style="padding:8px;border-bottom:1px solid #f0f0f0;text-align:center">x${i.quantity}</td><td style="padding:8px;border-bottom:1px solid #f0f0f0;text-align:right">&#8377;${i.subtotal}</td></tr>`
     ).join('');
 
+    // ── Generate Printable Invoice HTML ──
+    const invoiceHtml = `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <title>Invoice - ${order.orderId}</title>
+        <style>
+          body { font-family: 'Segoe UI', system-ui, sans-serif; background: #fff; color: #333; margin: 0; padding: 40px; }
+          .invoice-box { max-width: 800px; margin: 0 auto; }
+          .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; padding-bottom: 20px; border-bottom: 2px solid #1a4d2e; }
+          .header h1 { margin: 0 0 8px 0; color: #1a4d2e; font-size: 28px; }
+          .details { display: flex; justify-content: space-between; margin-bottom: 30px; line-height: 1.6; }
+          .table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+          .table th { background: #f0fdf4; padding: 12px; text-align: left; color: #1a4d2e; border-bottom: 2px solid #cce8d6; }
+          .table th:nth-child(2) { text-align: center; }
+          .table th:last-child { text-align: right; }
+          .table td { padding: 12px; border-bottom: 1px solid #eee; }
+          .table td:nth-child(2) { text-align: center; }
+          .table td:last-child { text-align: right; }
+          .total-row td { font-weight: 800; font-size: 18px; color: #1a4d2e; border-bottom: none; padding-top: 24px; }
+          .footer { text-align: center; margin-top: 40px; font-size: 14px; color: #666; padding-top: 20px; border-top: 1px solid #eee; }
+        </style>
+      </head>
+      <body>
+        <div class="invoice-box">
+          <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 40px; border-bottom: 2px solid #1a4d2e; padding-bottom: 20px;">
+            <tr>
+              <td style="vertical-align: top;">
+                <h1 style="margin: 0 0 8px 0; color: #1a4d2e; font-size: 28px;">🌿 Green Valley Farm</h1>
+                <p style="margin:0;color:#666;">Tengrahan, Minapur<br>Muzaffarpur, Bihar - 843117</p>
+                <p style="margin:4px 0 0;color:#666;">Phone: +91 9471800046</p>
+              </td>
+              <td style="vertical-align: top; text-align: right;">
+                <h2 style="margin: 0 0 8px 0; color: #555; font-size: 32px; letter-spacing: 2px;">INVOICE</h2>
+                <p style="margin: 0;"><strong>Order ID:</strong> ${order.orderId}</p>
+                <p style="margin: 4px 0 0;"><strong>Date:</strong> ${new Date(order.placedAt).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+              </td>
+            </tr>
+          </table>
+          
+          <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 30px; line-height: 1.6;">
+            <tr>
+              <td style="vertical-align: top;">
+                <h3 style="margin:0 0 8px;font-size:16px;color:#888;text-transform:uppercase;">Billed To</h3>
+                <p style="margin:0;font-weight:600;font-size:16px;">${order.customer.name}</p>
+                <p style="margin:4px 0 0;color:#555;max-width:250px;">${order.customer.address}</p>
+                <p style="margin:4px 0 0;color:#555;">Phone: ${order.customer.phone}</p>
+              </td>
+              <td style="vertical-align: top; text-align: right;">
+                <h3 style="margin:0 0 8px;font-size:16px;color:#888;text-transform:uppercase;">Payment Info</h3>
+                <p style="margin:0;"><strong>Method:</strong> ${order.paymentMethod || 'COD'}</p>
+                ${order.upiUtr ? `<p style="margin:4px 0 0;"><strong>Transaction ID:</strong> ${order.upiUtr}</p>` : ''}
+                <p style="margin:4px 0 0;"><strong>Status:</strong> <span style="color:#1a4d2e;font-weight:700;">${order.status.toUpperCase()}</span></p>
+              </td>
+            </tr>
+          </table>
+
+          <table class="table">
+            <tr>
+              <th>Item Description</th>
+              <th>Quantity</th>
+              <th>Price</th>
+            </tr>
+            ${order.items.map(i => `<tr><td>${i.name}</td><td>x${i.quantity}</td><td>₹${i.subtotal}</td></tr>`).join('')}
+            <tr class="total-row">
+              <td colspan="2" style="text-align: right;">Grand Total</td>
+              <td style="text-align: right;">₹${order.totalPrice}</td>
+            </tr>
+          </table>
+
+          <div class="footer">
+            <p style="margin:0;">Thank you for choosing farm-fresh quality! 🌿</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
     // ── HTML Customer Email ──
     const customerHtml = `<!DOCTYPE html><html><body style="margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;background:#f6f9f4">
 <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:40px 16px">
@@ -1555,7 +1634,7 @@ const store = {
   </td></tr>
   <tr><td style="padding:36px 40px">
     <p style="margin:0 0 16px;font-size:16px;color:#333">Hi <strong>${order.customer.name}</strong>,</p>
-    <p style="margin:0 0 20px;color:#555;font-size:15px;line-height:1.7">Your order has been successfully placed! We're preparing your farm-fresh products for delivery. 🚚</p>
+    <p style="margin:0 0 20px;color:#555;font-size:15px;line-height:1.7">Your order has been successfully placed! We've attached your official invoice to this email. We're preparing your farm-fresh products for delivery. 🚚</p>
     <table width="100%" style="background:#f8faf8;border-radius:12px;margin:20px 0" cellpadding="0" cellspacing="0">
       <tr><td style="padding:14px 20px;color:#888;font-size:13px;border-bottom:1px solid #e8f0e8">Order ID</td><td style="padding:14px 20px;font-weight:700;text-align:right;border-bottom:1px solid #e8f0e8">${order.orderId}</td></tr>
       <tr><td style="padding:14px 20px;color:#888;font-size:13px;border-bottom:1px solid #e8f0e8">Payment</td><td style="padding:14px 20px;text-align:right;border-bottom:1px solid #e8f0e8">${paymentLine}</td></tr>
@@ -1570,7 +1649,7 @@ const store = {
       <p style="margin:0;color:#333;font-size:14px">📍 <strong>Delivery to:</strong> ${order.customer.address}</p>
     </div>
     <div style="text-align:center;margin-top:28px">
-      <a href="https://green-valley-farm.online/" style="display:inline-block;background:linear-gradient(135deg,#1a4d2e,#2d7a4a);color:#fff;padding:12px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px">🛒 Continue Shopping</a>
+      <a href="https://green-valley-farm.online/#orders" style="display:inline-block;background:linear-gradient(135deg,#1a4d2e,#2d7a4a);color:#fff;padding:12px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px">🛒 Track Your Order</a>
     </div>
   </td></tr>
   <tr><td style="padding:20px 40px;background:#f8faf8;text-align:center;border-top:1px solid #e8f0e8">
@@ -1616,7 +1695,14 @@ const store = {
           replyTo,
           to: email,
           subject: `Order Confirmed - ${order.orderId}`,
-          html: customerHtml
+          html: customerHtml,
+          attachments: [
+            {
+              filename: `Invoice-${order.orderId}.html`,
+              content: invoiceHtml,
+              contentType: 'text/html'
+            }
+          ]
         });
         console.log(`[Nodemailer] Sent HTML Confirmation to customer ${email}`);
       } catch (err) {

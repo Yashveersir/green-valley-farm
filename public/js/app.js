@@ -1145,7 +1145,10 @@ const App = {
           ` : ''}
           <div class="order-policy ${canCancel ? 'active' : ''}">${canCancel ? `Cancellation available until ${deadlineText}` : this.getOrderPolicyText(o)}</div>
           <div class="order-card-footer"><span style="color:var(--text-muted);font-size:13px">Payment: ${o.paymentMethod || 'COD'}</span><span class="order-card-total">₹${o.totalPrice}</span></div>
-          <div class="order-card-actions">${canCancel ? `<button class="btn btn-danger btn-sm" onclick="App.cancelOrder('${o.orderId}')">Cancel Order</button>` : ''}</div>
+          <div class="order-card-actions" style="gap: 8px;">
+            ${canCancel ? `<button class="btn btn-danger btn-sm" onclick="App.cancelOrder('${o.orderId}')">Cancel Order</button>` : ''}
+            <button class="btn btn-outline btn-sm" onclick="window.open('/api/orders/${o.orderId}/invoice?token=' + API.getToken(), '_blank')">📄 Invoice</button>
+          </div>
         </div>`;
       }).join('');
     } catch (err) { this.toast('Failed to load orders', 'error'); }

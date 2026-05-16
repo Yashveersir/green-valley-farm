@@ -37,3 +37,6 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+
+# ECC Installer
+everything-claude-code/
