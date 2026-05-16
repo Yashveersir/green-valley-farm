@@ -1,0 +1,10 @@
+node_modules/
+.git/
+.env
+.env.*
+logs/
+tmp/
+.cache/
+everything-claude-code/
+.gemini/
+check-deploy.js
