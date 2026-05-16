@@ -15,6 +15,7 @@
           "public/**",
           "data/**",
           "models/**",
+          "middleware/**",
           "routes/**"
         ]
       }

@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'gvf-pwa-v4';
+const CACHE_VERSION = 'gvf-pwa-v5';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 
@@ -8,7 +8,6 @@ const PRECACHE_URLS = [
   '/privacy.html',
   '/terms.html',
   '/css/styles.css',
-  '/js/api.js',
   '/js/app.js',
   '/manifest.json',
   '/images/logo.png',
@@ -19,6 +18,7 @@ const PRECACHE_URLS = [
 const NEVER_CACHE = [
   '/api/',
   '/admin',
+  '/js/api.js',
   '/js/admin.js',
   '/checkout',
   'checkout.razorpay.com',

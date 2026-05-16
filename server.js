@@ -184,6 +184,16 @@ app.use(express.static(path.join(__dirname, 'public'), {
   etag: true,
   lastModified: true,
   index: false,
+  setHeaders: (res, filePath) => {
+    const normalizedPath = filePath.replace(/\\/g, '/');
+    if (
+      normalizedPath.endsWith('/public/admin.html') ||
+      normalizedPath.endsWith('/public/js/admin.js') ||
+      normalizedPath.endsWith('/public/js/api.js')
+    ) {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    }
+  }
 }));
 
 // ── Store initialization (Blocking for ALL API Routes) ──
