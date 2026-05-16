@@ -285,6 +285,7 @@ app.use('/api/admin', adminOnly, adminRouter);
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
+    version: require('./package.json').version,
     uptime: Math.floor(process.uptime()),
     timestamp: new Date().toISOString(),
     memory: Math.round(process.memoryUsage().rss / 1024 / 1024) + 'MB',
