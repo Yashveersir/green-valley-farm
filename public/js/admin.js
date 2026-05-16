@@ -30,6 +30,7 @@ const AdminApp = {
       return false;
     }
     document.getElementById('admin-login-screen').style.display = 'none';
+    this.updateSidebar(user);
     return true;
   },
 
@@ -44,6 +45,7 @@ const AdminApp = {
       if (res.user.role !== 'admin') throw new Error('Not an admin account');
       
       document.getElementById('admin-login-screen').style.display = 'none';
+      this.updateSidebar(res.user);
       this.toast('Admin login successful');
       await this.loadInitialData();
       this.startNotifPolling();
@@ -96,6 +98,7 @@ const AdminApp = {
       const res = await API.verifyOtp(email, otp);
       if (!res.user || res.user.role !== 'admin') throw new Error('OTP verified, but this is not an admin account');
       document.getElementById('admin-login-screen').style.display = 'none';
+      this.updateSidebar(res.user);
       this.toast('Admin OTP login successful!');
       await this.loadInitialData();
       this.startNotifPolling();
@@ -106,41 +109,56 @@ const AdminApp = {
     btn.disabled = false; btn.textContent = 'Verify & Login';
   },
 
-  logout() {
-    API.logout();
-    clearInterval(this.notifsInterval);
+  async logout() {
+    await API.logout();
+    if (this.notifsInterval) clearInterval(this.notifsInterval);
     window.location.reload();
+  },
+
+  updateSidebar(user) {
+    if (!user) return;
+    const initial = (user.name || 'A').charAt(0).toUpperCase();
+    const nameEl = document.getElementById('sidebar-admin-name');
+    const emailEl = document.getElementById('sidebar-admin-email');
+    const avatarEl = document.getElementById('sidebar-admin-avatar');
+    if (nameEl) nameEl.textContent = user.name || 'Admin';
+    if (emailEl) emailEl.textContent = user.email || '';
+    if (avatarEl) avatarEl.textContent = initial;
   },
 
   openProfileModal() {
     const user = API.getUser();
     if (!user) return;
-    document.getElementById('ap-email').value = user.email || '';
+    const emailEl = document.getElementById('ap-email');
+    if (emailEl) emailEl.value = user.email || '';
     document.getElementById('ap-name').value = user.name || '';
+    document.getElementById('ap-phone').value = user.phone || '';
     document.getElementById('ap-password').value = '';
     document.getElementById('modal-admin-profile').style.display = 'flex';
   },
 
   async saveProfile(e) {
     e.preventDefault();
-    const btn = document.getElementById('ap-submit');
-    btn.disabled = true; btn.textContent = 'Saving...';
+    const btn = e.target.querySelector('button[type="submit"]') || document.getElementById('ap-submit');
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
     const name = document.getElementById('ap-name').value.trim();
+    const phone = (document.getElementById('ap-phone')?.value || '').trim();
     const newPassword = document.getElementById('ap-password').value.trim();
     try {
-      const bodyParams = { name, phone: API.getUser().phone || '0000000000' };
+      const bodyParams = { name, phone };
       if (newPassword) {
-        if (newPassword.length < 6) { this.toast('Password must be at least 6 characters', 'error'); btn.disabled = false; btn.textContent = 'Save Changes'; return; }
+        if (newPassword.length < 8) { this.toast('Password must be at least 8 characters', 'error'); if (btn) { btn.disabled = false; btn.textContent = 'Save Changes'; } return; }
         bodyParams.newPassword = newPassword;
       }
       const res = await API.request('/auth/profile', { method: 'PUT', body: JSON.stringify(bodyParams) });
       API.setUser(res.user);
+      this.updateSidebar(res.user);
       document.getElementById('modal-admin-profile').style.display = 'none';
       this.toast('Profile updated successfully!');
     } catch (err) {
       this.toast(err.message || 'Failed to update profile', 'error');
     }
-    btn.disabled = false; btn.textContent = 'Save Changes';
+    if (btn) { btn.disabled = false; btn.textContent = 'Save Changes'; }
   },
 
   // ── Navigation ──
@@ -151,7 +169,7 @@ const AdminApp = {
     document.getElementById(`tab-${tab}`).classList.add('active');
     document.querySelector(`.nav-item[data-tab="${tab}"]`).classList.add('active');
     
-    const titles = { dashboard: 'Dashboard', products: 'Product Catalog', orders: 'Order Management', coupons: 'Coupon Management', reviews: 'Review Moderation', customers: 'Customer Database' };
+    const titles = { dashboard: 'Dashboard', products: 'Product Catalog', orders: 'Order Management', coupons: 'Coupon Management', reviews: 'Review Moderation', customers: 'Customer Database', admins: 'Admin Management' };
     document.getElementById('page-title').textContent = titles[tab];
     this.currentTab = tab;
     
@@ -160,6 +178,7 @@ const AdminApp = {
     if (tab === 'coupons') this.renderCoupons();
     if (tab === 'reviews') this.renderReviews();
     if (tab === 'customers') this.renderCustomers();
+    if (tab === 'admins') this.loadAdmins();
   },
 
   // ── Data Loading & Dashboard ──
@@ -321,7 +340,12 @@ const AdminApp = {
   },
 
   async deleteProduct(id) {
-    if (!confirm('Are you sure you want to delete this product?')) return;
+    const confirmed = await this.confirmModal({
+      title: 'Delete Product',
+      message: 'Are you sure you want to delete this product? It will be removed from the store catalog.',
+      confirmText: 'Yes, Delete Product'
+    });
+    if (!confirmed) return;
     try {
       await API.request(`/products/${id}`, { method: 'DELETE' });
       this.toast('Product deleted');
@@ -464,7 +488,12 @@ const AdminApp = {
   },
 
   async deleteCoupon(id) {
-    if (!confirm('Delete this coupon permanently?')) return;
+    const confirmed = await this.confirmModal({
+      title: 'Delete Coupon',
+      message: 'Are you sure you want to delete this coupon code? It will be permanently removed.',
+      confirmText: 'Yes, Delete Coupon'
+    });
+    if (!confirmed) return;
     try {
       await API.request(`/admin/coupons/${id}`, { method: 'DELETE' });
       this.toast('Coupon deleted');
@@ -601,6 +630,122 @@ const AdminApp = {
     } catch (err) {
       this.toast(err.message || 'Failed to update review', 'error');
     }
+  },
+
+  // ── Admin Management ──
+  async loadAdmins() {
+    try {
+      const res = await API.request('/admin/admins');
+      this.admins = res.admins;
+      this.renderAdmins();
+    } catch (err) {
+      this.toast('Failed to load admins', 'error');
+    }
+  },
+
+  renderAdmins() {
+    const tbody = document.getElementById('admins-table-body');
+    if (!tbody) return;
+    if (!this.admins || this.admins.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);">No admins found</td></tr>';
+      return;
+    }
+    const html = this.admins.map(admin => {
+      const isPermanent = ['admin-001', 'admin-002'].includes(admin.id) || admin.isPermanent;
+      return `
+        <tr>
+          <td>
+            <div style="font-weight:600;">${admin.name}</div>
+          </td>
+          <td>${admin.email}</td>
+          <td>${admin.phone || '-'}</td>
+          <td>
+            <span class="badge ${isPermanent ? 'status-delivered' : 'status-processing'}">${isPermanent ? 'Yes' : 'No'}</span>
+          </td>
+          <td>
+            ${!isPermanent ? `<button class="action-btn delete" onclick="AdminApp.deleteAdmin('${admin.id}')" title="Delete Admin">🗑️</button>` : '<span style="color:var(--text-muted);font-size:12px;">N/A</span>'}
+          </td>
+        </tr>
+      `;
+    }).join('');
+    tbody.innerHTML = html;
+  },
+
+  openAddAdminModal() {
+    document.getElementById('add-admin-form').reset();
+    document.getElementById('modal-add-admin').style.display = 'flex';
+  },
+
+  async saveNewAdmin(e) {
+    e.preventDefault();
+    const btn = e.target.querySelector('button[type="submit"]');
+    btn.disabled = true; btn.textContent = 'Saving...';
+    
+    const name = document.getElementById('na-name').value.trim();
+    const email = document.getElementById('na-email').value.trim();
+    const phone = document.getElementById('na-phone').value.trim();
+    const password = document.getElementById('na-password').value.trim();
+    
+    try {
+      await API.request('/admin/admins', {
+        method: 'POST',
+        body: JSON.stringify({ name, email, phone, password })
+      });
+      document.getElementById('modal-add-admin').style.display = 'none';
+      this.toast('Admin added successfully!');
+      this.loadAdmins();
+    } catch (err) {
+      this.toast(err.message || 'Failed to add admin', 'error');
+    }
+    btn.disabled = false; btn.textContent = 'Create Admin';
+  },
+
+  async deleteAdmin(id) {
+    const confirmed = await this.confirmModal({
+      title: 'Delete Admin',
+      message: 'Are you sure you want to remove this administrator? This action cannot be undone.',
+      confirmText: 'Yes, Delete Admin'
+    });
+    if (!confirmed) return;
+    
+    try {
+      await API.request(`/admin/admins/${id}`, { method: 'DELETE' });
+      this.toast('Admin deleted');
+      this.loadAdmins();
+    } catch (err) {
+      this.toast(err.message || 'Failed to delete admin', 'error');
+    }
+  },
+
+  // ── Utils ──
+  confirmModal({ title, message, confirmText }) {
+    return new Promise(resolve => {
+      const modal = document.getElementById('modal-confirm');
+      document.getElementById('confirm-title').textContent = title || 'Confirm Action';
+      document.getElementById('confirm-message').textContent = message || 'Are you sure?';
+      const okBtn = document.getElementById('confirm-btn-ok');
+      okBtn.textContent = confirmText || 'Confirm';
+      
+      modal.style.display = 'flex';
+      
+      const cleanup = (val) => {
+        modal.style.display = 'none';
+        okBtn.removeEventListener('click', onConfirm);
+        resolve(val);
+      };
+      
+      const onConfirm = () => cleanup(true);
+      okBtn.addEventListener('click', onConfirm);
+      
+      // Close on cancel or outside click
+      const onCancel = (e) => {
+        if (e.target.classList.contains('btn-outline') || e.target === modal) {
+          modal.removeEventListener('click', onCancel);
+          cleanup(false);
+        }
+      };
+      modal.addEventListener('click', onCancel);
+    });
   },
 
   // ── Notifications ──

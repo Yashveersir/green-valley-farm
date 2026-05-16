@@ -229,7 +229,7 @@ let users = [
   {
     id: 'admin-002',
     name: 'Anjiv Singh',
-    email: 'REDACTED@gmail.com',
+    email: 'anjivsir@gmail.com',
     phone: '+91 9471800046',
     role: 'admin',
     createdAt: new Date().toISOString()
@@ -238,8 +238,8 @@ let users = [
 let pendingOtps = {}; // email -> { otp, payload, expires }
 // Admin seed passwords are read ONLY from environment variables — never hardcoded here.
 const SEEDED_ADMIN_PASSWORDS = {
-  'sales.greenvalleyfarm@gmail.com': process.env.ADMIN1_PASSWORD || '',
-  'REDACTED@gmail.com': process.env.ADMIN2_PASSWORD || ''
+  'sales.greenvalleyfarm@gmail.com': process.env.ADMIN_PASS_1 || '',
+  'anjivsir@gmail.com': process.env.ADMIN_PASS_2 || ''
 };
 const ORDER_STATUSES = ['confirmed', 'processing', 'dispatched', 'delivered', 'cancelled'];
 const CUSTOMER_CANCELLABLE_STATUSES = ['confirmed', 'processing'];
@@ -594,6 +594,14 @@ async function findUsers(query = {}, options = {}) {
   return users.filter(user => entries.every(([key, value]) => user[key] === value));
 }
 
+async function removeUser(userId) {
+  if (isMongoReady()) {
+    await db.deleteOneData('users', { id: userId });
+  }
+  const index = users.findIndex(u => u.id === userId || String(u._id) === userId);
+  if (index !== -1) users.splice(index, 1);
+}
+
 async function persistUser(user) {
   if (!user) return null;
   if (isMongoReady()) {
@@ -734,7 +742,7 @@ const store = {
             needsSave = true;
           }
           
-          const anjivIndex = uniqueUsers.findIndex(u => (u.email || '').toLowerCase() === 'REDACTED@gmail.com');
+          const anjivIndex = uniqueUsers.findIndex(u => (u.email || '').toLowerCase() === 'anjivsir@gmail.com');
           if (anjivIndex !== -1) {
             if (uniqueUsers[anjivIndex].role !== 'admin') {
               uniqueUsers[anjivIndex].role = 'admin';
@@ -915,6 +923,43 @@ const store = {
     await persistUser(user);
     sendWelcomeEmail(user).catch(() => {});
     return buildAuthResponse(user, refreshToken);
+  },
+
+  async getAdmins() {
+    const admins = await findUsers({ role: 'admin' });
+    return admins.map(safeUser);
+  },
+
+  async addAdmin(data) {
+    const { name, email, password, phone } = data;
+    if (!name || !email || !password) return { error: 'Name, email and password required' };
+    const cleanEmail = email.trim().toLowerCase();
+    const existing = await findUserByEmail(cleanEmail);
+    if (existing) return { error: 'Email already registered' };
+    
+    const admin = {
+      id: `admin-${uuidv4().slice(0, 8)}`,
+      name: name.trim(),
+      email: cleanEmail,
+      passwordHash: await hashPassword(password),
+      phone: phone || '',
+      role: 'admin',
+      isPermanent: false,
+      createdAt: new Date().toISOString()
+    };
+    await persistUser(admin);
+    return { admin: safeUser(admin) };
+  },
+
+  async deleteAdmin(adminId) {
+    const user = await findUser({ id: adminId });
+    if (!user) return { error: 'Admin not found' };
+    if (user.role !== 'admin') return { error: 'User is not an admin' };
+    if (['admin-001', 'admin-002'].includes(user.id) || user.isPermanent) {
+      return { error: 'Permanent admins cannot be deleted' };
+    }
+    await removeUser(adminId);
+    return { success: true };
   },
 
   async updateUserProfile(userId, data) {

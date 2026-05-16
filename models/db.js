@@ -178,7 +178,14 @@ async function loadData(collectionName) {
 async function findData(collectionName, query = {}, options = {}) {
   if (!isConnected) return null;
   const Model = getModel(collectionName);
-  let request = Model.find(query);
+  
+  let finalQuery = { ...query };
+  if (finalQuery.id && typeof finalQuery.id === 'string' && mongoose.Types.ObjectId.isValid(finalQuery.id)) {
+    const { id, ...rest } = finalQuery;
+    finalQuery = { $or: [{ id: id }, { _id: id }], ...rest };
+  }
+  
+  let request = Model.find(finalQuery);
   if (options.sort) request = request.sort(options.sort);
   if (options.limit) request = request.limit(options.limit);
   const data = await request.lean();
@@ -188,7 +195,14 @@ async function findData(collectionName, query = {}, options = {}) {
 async function findOneData(collectionName, query = {}, options = {}) {
   if (!isConnected) return null;
   const Model = getModel(collectionName);
-  let request = Model.findOne(query);
+  
+  let finalQuery = { ...query };
+  if (finalQuery.id && typeof finalQuery.id === 'string' && mongoose.Types.ObjectId.isValid(finalQuery.id)) {
+    const { id, ...rest } = finalQuery;
+    finalQuery = { $or: [{ id: id }, { _id: id }], ...rest };
+  }
+  
+  let request = Model.findOne(finalQuery);
   if (options.sort) request = request.sort(options.sort);
   const doc = await request.lean();
   return normalizeDoc(doc);
@@ -204,11 +218,18 @@ async function createData(collectionName, data) {
 async function updateOneData(collectionName, filter, update, options = {}) {
   if (!isConnected) return null;
   const Model = getModel(collectionName);
+  
+  let finalFilter = { ...filter };
+  if (finalFilter.id && typeof finalFilter.id === 'string' && mongoose.Types.ObjectId.isValid(finalFilter.id)) {
+    const { id, ...rest } = finalFilter;
+    finalFilter = { $or: [{ id: id }, { _id: id }], ...rest };
+  }
+
   if (update?.$set?._id) {
     update = { ...update, $set: { ...update.$set } };
     delete update.$set._id;
   }
-  const doc = await Model.findOneAndUpdate(filter, update, {
+  const doc = await Model.findOneAndUpdate(finalFilter, update, {
     new: true,
     upsert: false,
     lean: true,
@@ -220,7 +241,14 @@ async function updateOneData(collectionName, filter, update, options = {}) {
 async function deleteOneData(collectionName, filter) {
   if (!isConnected) return null;
   const Model = getModel(collectionName);
-  return Model.deleteOne(filter);
+  
+  let finalFilter = { ...filter };
+  if (finalFilter.id && typeof finalFilter.id === 'string' && mongoose.Types.ObjectId.isValid(finalFilter.id)) {
+    const { id, ...rest } = finalFilter;
+    finalFilter = { $or: [{ id: id }, { _id: id }], ...rest };
+  }
+  
+  return Model.deleteOne(finalFilter);
 }
 
 async function countData(collectionName, query = {}) {

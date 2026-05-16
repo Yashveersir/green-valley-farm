@@ -146,11 +146,15 @@
       <div class="nav-item" data-tab="customers" onclick="AdminApp.navigate('customers')"><span>👥</span> Customers</div>
       <div class="nav-item" data-tab="coupons" onclick="AdminApp.navigate('coupons')"><span>🎟️</span> Coupons</div>
       <div class="nav-item" data-tab="reviews" onclick="AdminApp.navigate('reviews')"><span>⭐</span> Reviews</div>
+      <div class="nav-item" data-tab="admins" onclick="AdminApp.navigate('admins')"><span>🛡️</span> Admins</div>
     </div>
     <div class="sidebar-footer">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
-        <div style="width:36px;height:36px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#000;font-weight:700;">A</div>
-        <div style="flex:1;"><strong style="display:block;font-size:14px;">Farm Admin</strong></div>
+        <div id="sidebar-admin-avatar" style="width:36px;height:36px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#000;font-weight:700;">A</div>
+        <div style="flex:1;">
+          <strong id="sidebar-admin-name" style="display:block;font-size:14px;">Admin</strong>
+          <small id="sidebar-admin-email" style="color:var(--text-muted);font-size:11px;"></small>
+        </div>
       </div>
       <button class="btn btn-outline btn-block btn-sm" style="margin-bottom:8px;" onclick="AdminApp.openProfileModal()">⚙ Edit Profile</button>
       <button class="btn btn-outline btn-block btn-sm" onclick="AdminApp.logout()">Logout</button>
@@ -163,6 +167,7 @@
       <h2 id="page-title">Dashboard</h2>
       <div style="display:flex;gap:20px;align-items:center;">
         <a href="/" target="_blank" class="btn btn-outline btn-sm">View Store ↗</a>
+        <button class="btn btn-outline btn-sm" onclick="AdminApp.logout()" style="color:var(--danger); border-color:rgba(239,68,68,0.2);">Logout</button>
         <div class="mic-btn" id="mic-btn" onclick="AdminApp.toggleMic()" title="Speak an offer to broadcast">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
         </div>
@@ -317,7 +322,77 @@
         </table>
       </div>
     </div>
+    <div class="admin-content" id="tab-admins">
+      <div class="table-card">
+        <div class="table-header-bar">
+          <h3>Admin Management</h3>
+          <button class="btn btn-primary btn-sm" onclick="AdminApp.openAddAdminModal()">+ Add Admin</button>
+        </div>
+        <table>
+          <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Permanent</th><th>Actions</th></tr></thead>
+          <tbody id="admins-table-body"></tbody>
+        </table>
+      </div>
+    </div>
   </main>
+
+  <!-- Admin Profile Modal -->
+  <div class="admin-modal" id="modal-admin-profile">
+    <div class="admin-modal-content" style="max-width:500px;">
+      <h2 style="margin-bottom:6px;">Edit My Profile</h2>
+      <p style="color:var(--text-secondary);font-size:13px;margin-bottom:24px;">Update your admin account details</p>
+      <form id="admin-profile-form" onsubmit="AdminApp.saveProfile(event)">
+        <div class="form-group">
+          <label>Email <small style="color:var(--text-muted);font-weight:normal;">(cannot be changed)</small></label>
+          <input type="email" id="ap-email" disabled style="background:rgba(255,255,255,0.04);cursor:not-allowed;opacity:0.7;">
+        </div>
+        <div class="form-grid" style="grid-template-columns:1fr 1fr;">
+          <div class="form-group"><label>Full Name</label><input type="text" id="ap-name" required placeholder="Your name"></div>
+          <div class="form-group"><label>Phone</label><input type="text" id="ap-phone" placeholder="+91 XXXXXXXXXX"></div>
+        </div>
+        <div class="form-group">
+          <label>Change Password <small style="color:var(--text-muted);font-weight:normal;">(leave blank to keep current)</small></label>
+          <input type="password" id="ap-password" placeholder="New password (min 8 chars)">
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:12px;margin-top:24px;">
+          <button type="button" class="btn btn-outline" onclick="document.getElementById('modal-admin-profile').style.display='none'">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="ap-submit">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Admin Modal -->
+  <div class="admin-modal" id="modal-add-admin">
+    <div class="admin-modal-content">
+      <h2 style="margin-bottom:24px;">Add New Admin</h2>
+      <form id="add-admin-form" onsubmit="AdminApp.saveNewAdmin(event)">
+        <div class="form-grid">
+          <div class="form-group full-w"><label>Name</label><input type="text" id="na-name" required></div>
+          <div class="form-group"><label>Email</label><input type="email" id="na-email" required></div>
+          <div class="form-group"><label>Phone</label><input type="text" id="na-phone"></div>
+          <div class="form-group full-w"><label>Password (min 8 chars)</label><input type="password" id="na-password" required minlength="8"></div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:12px;margin-top:24px;">
+          <button type="button" class="btn btn-outline" onclick="document.getElementById('modal-add-admin').style.display='none'">Cancel</button>
+          <button type="submit" class="btn btn-primary">Create Admin</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Generic Confirm Modal -->
+  <div class="admin-modal" id="modal-confirm">
+    <div class="admin-modal-content" style="max-width:400px;text-align:center;">
+      <div style="font-size:48px;margin-bottom:16px;">⚠️</div>
+      <h2 style="margin-bottom:12px;" id="confirm-title">Confirm Action</h2>
+      <p style="color:var(--text-secondary);margin-bottom:24px;line-height:1.5;" id="confirm-message">Are you sure you want to proceed with this action?</p>
+      <div style="display:flex;gap:12px;justify-content:center;">
+        <button type="button" class="btn btn-outline" onclick="document.getElementById('modal-confirm').style.display='none'">Cancel</button>
+        <button type="button" class="btn btn-primary" id="confirm-btn-ok" style="background:#ef4444;border-color:#ef4444;color:#fff;">Confirm Delete</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Product Edit Modal -->
   <div class="admin-modal" id="modal-product">
@@ -401,25 +476,6 @@
     </div>
   </div>
 
-  <!-- Admin Profile Modal -->
-  <div class="admin-modal" id="modal-admin-profile" style="display:none;">
-    <div class="admin-modal-content" style="max-width:480px;">
-      <h2 style="margin-bottom:8px;">Edit Profile</h2>
-      <p style="color:var(--text-secondary);font-size:14px;margin-bottom:24px;">Update admin credentials</p>
-      <form onsubmit="AdminApp.saveProfile(event)">
-        <div class="form-group"><label>Email</label><input type="email" id="ap-email" disabled style="background:var(--bg-surface);cursor:not-allowed;"></div>
-        <div class="form-group"><label>Name</label><input type="text" id="ap-name" required></div>
-        <div class="form-group">
-          <label>Change Password <small style="color:var(--text-muted);font-weight:normal;">(leave blank to keep current)</small></label>
-          <input type="password" id="ap-password" placeholder="New password (min 6 chars)">
-        </div>
-        <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:24px;">
-          <button type="button" class="btn btn-outline" onclick="document.getElementById('modal-admin-profile').style.display='none'">Cancel</button>
-          <button type="submit" class="btn btn-primary" id="ap-submit">Save Changes</button>
-        </div>
-      </form>
-    </div>
-  </div>
 
   <!-- Offer Broadcast Panel -->
   <div class="offer-overlay" id="offer-overlay" onclick="AdminApp.closeOfferPanel()"></div>

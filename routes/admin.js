@@ -64,6 +64,23 @@ router.get('/customers', async (req, res) => {
   res.json({ success: true, customers: await store.getCustomers() });
 });
 
+// ── Admin Management ──
+router.get('/admins', async (req, res) => {
+  res.json({ success: true, admins: await store.getAdmins() });
+});
+
+router.post('/admins', async (req, res) => {
+  const result = await store.addAdmin(req.body);
+  if (result.error) return res.status(400).json({ success: false, error: result.error });
+  res.status(201).json({ success: true, admin: result.admin });
+});
+
+router.delete('/admins/:id', async (req, res) => {
+  const result = await store.deleteAdmin(req.params.id);
+  if (result.error) return res.status(400).json({ success: false, error: result.error });
+  res.json({ success: true });
+});
+
 // ── Coupon Management ──
 
 // GET /api/admin/coupons
