@@ -198,10 +198,11 @@ async function revokeRefreshSession(user, refreshToken) {
   return before !== user.refreshSessions.length;
 }
 
+const smtpPort = parseInt(process.env.SMTP_PORT, 10) || 587;
 const mailer = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
-  port: parseInt(process.env.SMTP_PORT) || 587,
-  secure: false,
+  port: smtpPort,
+  secure: smtpPort === 465,
   auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
 });
 
@@ -261,18 +262,40 @@ const ABANDONED_CART_COUPON_DAYS = Number(process.env.ABANDONED_CART_COUPON_DAYS
 let coupons = [];
 
 // ── Email notification helpers ──
+function hasSmtpConfig() {
+  return Boolean(process.env.SMTP_USER && process.env.SMTP_PASS);
+}
+
+function getMailFrom() {
+  return `"Green Valley Farm" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`;
+}
+
+function getMailReplyTo() {
+  return process.env.SMTP_REPLY_TO || process.env.SMTP_FROM || process.env.SMTP_USER;
+}
+
 async function sendEmail(to, subject, html) {
   if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
     console.log(`[MOCK EMAIL] To: ${to} | Subject: ${subject}`);
-    return;
+    return { sent: false, mocked: true, accepted: [], rejected: [], error: null };
   }
   try {
-    await mailer.sendMail({
-      from: `"Green Valley Farm" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
-      to, subject, html
+    const info = await mailer.sendMail({
+      from: getMailFrom(),
+      replyTo: getMailReplyTo(),
+      to,
+      subject,
+      html
     });
-    console.log(`[Email] Sent: ${subject} to ${to}`);
-  } catch (err) { console.error('[Email Error]:', err.message); }
+    const accepted = info.accepted || [];
+    const rejected = info.rejected || [];
+    const sent = accepted.length > 0 && rejected.length === 0;
+    console.log(`[Email] ${sent ? 'Sent' : 'Partially sent'}: ${subject} to ${to}`);
+    return { sent, mocked: false, accepted, rejected, response: info.response || null, error: null };
+  } catch (err) {
+    console.error('[Email Error]:', err.code || err.name, err.responseCode || '', err.message);
+    return { sent: false, mocked: false, accepted: [], rejected: [to], error: err.message };
+  }
 }
 
 async function sendWelcomeEmail(user) {
@@ -826,17 +849,18 @@ const store = {
     
     const messageBody = `Your Green Valley Poultry Farm OTP is: ${otp}. It is valid for 5 minutes. Please do not share this code.`;
     
-    if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+    if (hasSmtpConfig()) {
       try {
         await mailer.sendMail({
-          from: `"Green Valley Farm" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+          from: getMailFrom(),
+          replyTo: getMailReplyTo(),
           to: cleanEmail,
           subject: `${otp} is your Green Valley OTP`,
           text: messageBody
         });
         console.log(`[Nodemailer] Sent real Email OTP to ${cleanEmail}`);
       } catch (err) {
-        console.error('[Nodemailer Email Error]:', err.message);
+        console.error('[Nodemailer Email Error]:', err.code || err.name, err.responseCode || '', err.message);
       }
     } else {
       console.log(`[MOCK EMAIL] OTP for ${cleanEmail}: ${otp}`);
@@ -921,8 +945,8 @@ const store = {
     };
     const refreshToken = await issueRefreshSession(user);
     await persistUser(user);
-    sendWelcomeEmail(user).catch(() => {});
-    return buildAuthResponse(user, refreshToken);
+    const welcomeEmail = await sendWelcomeEmail(user);
+    return { ...buildAuthResponse(user, refreshToken), welcomeEmailSent: Boolean(welcomeEmail.sent) };
   },
 
   async getAdmins() {
@@ -1011,8 +1035,12 @@ const store = {
 
     const refreshToken = await issueRefreshSession(user);
     await persistUser(user);
-    if (isNewUser) sendWelcomeEmail(user).catch(() => {});
-    return buildAuthResponse(user, refreshToken);
+    const response = buildAuthResponse(user, refreshToken);
+    if (isNewUser) {
+      const welcomeEmail = await sendWelcomeEmail(user);
+      response.welcomeEmailSent = Boolean(welcomeEmail.sent);
+    }
+    return response;
   },
 
   async loginUser(email, password) {
@@ -1570,10 +1598,16 @@ const store = {
 
     // Send Email Notification to Customer
     const user = await findUser({ id: userId });
-    const resolvedEmail = user ? user.email : customerInfo.email || `${name.replace(/\s+/g,'').toLowerCase()}@mock.com`;
-    await this.sendEmailNotification(resolvedEmail, order);
+    const resolvedEmail = user ? user.email : customerInfo.email;
+    const emailResult = resolvedEmail
+      ? await this.sendEmailNotification(resolvedEmail, order)
+      : { customerSent: false, adminSent: false, error: 'No customer email available' };
+    order.emailSent = Boolean(emailResult.customerSent);
+    order.adminEmailSent = Boolean(emailResult.adminSent);
+    order.emailError = emailResult.error || null;
+    await persistOrder(order);
 
-    return { ...order, emailSent: true };
+    return order;
   },
 
   async sendEmailNotification(email, order) {
@@ -1729,13 +1763,20 @@ const store = {
   </td></tr>
 </table></td></tr></table></body></html>`;
 
-    if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+    const result = {
+      customerSent: false,
+      adminSent: false,
+      adminSentCount: 0,
+      adminTotal: 0,
+      error: null
+    };
+
+    if (hasSmtpConfig()) {
       // Use the verified Brevo sender as FROM, and set Reply-To to the farm email
-      const verifiedSender = process.env.SMTP_FROM || process.env.SMTP_USER;
-      const fromAddr = `"Green Valley Farm" <${verifiedSender}>`;
-      const replyTo = verifiedSender;
+      const fromAddr = getMailFrom();
+      const replyTo = getMailReplyTo();
       try {
-        await mailer.sendMail({
+        const info = await mailer.sendMail({
           from: fromAddr,
           replyTo,
           to: email,
@@ -1749,32 +1790,41 @@ const store = {
             }
           ]
         });
+        result.customerSent = (info.accepted || []).length > 0 && !(info.rejected || []).length;
         console.log(`[Nodemailer] Sent HTML Confirmation to customer ${email}`);
       } catch (err) {
-        console.error('[Nodemailer Customer Email Error]:', err.message);
+        result.error = err.message;
+        console.error('[Nodemailer Customer Email Error]:', err.code || err.name, err.responseCode || '', err.message);
       }
 
       // Find ALL admins and notify them
       const admins = await findUsers({ role: 'admin' });
       const adminEmails = admins.length > 0 ? admins.map(u => u.email) : [replyTo];
+      result.adminTotal = adminEmails.length;
 
       for (const adminMail of adminEmails) {
         try {
-          await mailer.sendMail({
+          const info = await mailer.sendMail({
             from: fromAddr,
             replyTo,
             to: adminMail,
             subject: `New Order ${order.orderId} - Rs.${order.totalPrice} (${order.paymentMethod})`,
             html: adminHtml
           });
+          if ((info.accepted || []).length > 0 && !(info.rejected || []).length) {
+            result.adminSentCount++;
+          }
           console.log(`[Nodemailer] Sent admin alert to ${adminMail}`);
         } catch (err) {
-          console.error(`[Nodemailer Admin Email Error to ${adminMail}]:`, err.message);
+          result.error = result.error || err.message;
+          console.error(`[Nodemailer Admin Email Error to ${adminMail}]:`, err.code || err.name, err.responseCode || '', err.message);
         }
       }
+      result.adminSent = result.adminSentCount > 0;
     } else {
       console.log(`[MOCK EMAIL] Order confirmation for ${email} — Order ${order.orderId}`);
     }
+    return result;
   },
 
   async sendCancellationEmail(email, order) {
@@ -1836,10 +1886,9 @@ const store = {
   </td></tr>
 </table></td></tr></table></body></html>`;
 
-    if (process.env.SMTP_USER && process.env.SMTP_PASS) {
-      const verifiedSender = process.env.SMTP_FROM || process.env.SMTP_USER;
-      const fromAddr = `"Green Valley Farm" <${verifiedSender}>`;
-      const replyTo = verifiedSender;
+    if (hasSmtpConfig()) {
+      const fromAddr = getMailFrom();
+      const replyTo = getMailReplyTo();
       try {
         await mailer.sendMail({
           from: fromAddr,
@@ -1850,7 +1899,7 @@ const store = {
         });
         console.log(`[Nodemailer] Sent HTML Cancellation to customer ${email}`);
       } catch (err) {
-        console.error('[Nodemailer Customer Cancel Email Error]:', err.message);
+        console.error('[Nodemailer Customer Cancel Email Error]:', err.code || err.name, err.responseCode || '', err.message);
       }
 
       // Find ALL admins and notify them
@@ -1868,7 +1917,7 @@ const store = {
           });
           console.log(`[Nodemailer] Sent admin cancel alert to ${adminMail}`);
         } catch (err) {
-          console.error(`[Nodemailer Admin Cancel Email Error to ${adminMail}]:`, err.message);
+          console.error(`[Nodemailer Admin Cancel Email Error to ${adminMail}]:`, err.code || err.name, err.responseCode || '', err.message);
         }
       }
     } else {
@@ -1929,8 +1978,8 @@ const store = {
     });
 
     const user = await findUser({ id: userId });
-    const resolvedEmail = user ? user.email : order.customer.email || `${order.customer.name.replace(/\s+/g,'').toLowerCase()}@mock.com`;
-    await this.sendCancellationEmail(resolvedEmail, order);
+    const resolvedEmail = user ? user.email : order.customer.email;
+    if (resolvedEmail) await this.sendCancellationEmail(resolvedEmail, order);
 
     return {
       ...order,
@@ -1952,8 +2001,8 @@ const store = {
         order.cancelledBy = order.cancelledBy || 'admin';
         
         const user = await findUser({ id: order.userId });
-        const resolvedEmail = user ? user.email : order.customer.email || `${order.customer.name.replace(/\s+/g,'').toLowerCase()}@mock.com`;
-        await this.sendCancellationEmail(resolvedEmail, order);
+        const resolvedEmail = user ? user.email : order.customer.email;
+        if (resolvedEmail) await this.sendCancellationEmail(resolvedEmail, order);
       }
     } else if (previousStatus === 'cancelled' && order.stockRestored) {
       reserveOrderStock(order);
@@ -1970,7 +2019,7 @@ const store = {
     // Send delivery email when order is delivered
     if (status === 'delivered') {
       const user = await findUser({ id: order.userId });
-      if (user?.email) sendDeliveryEmail(order, user.email).catch(() => {});
+      if (user?.email) await sendDeliveryEmail(order, user.email);
     }
 
     return order;
@@ -2036,12 +2085,12 @@ const store = {
 
   // ══════ OFFER BROADCAST ══════
   async broadcastOfferEmail(subject, message) {
-    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    if (!hasSmtpConfig()) {
       throw new Error('SMTP not configured. Cannot send emails.');
     }
 
-    const verifiedSender = process.env.SMTP_FROM || process.env.SMTP_USER;
-    const fromAddr = `"Green Valley Farm" <${verifiedSender}>`;
+    const fromAddr = getMailFrom();
+    const replyTo = getMailReplyTo();
 
     // Get all customer emails (non-admin, verified users)
     const customerEmails = (await findUsers({ role: 'customer' }))
@@ -2054,7 +2103,7 @@ const store = {
 
     // Convert plain text message to nicely formatted paragraphs
     const messageParagraphs = message.split(/\n+/).map(p => p.trim()).filter(Boolean)
-      .map(p => `<p style="margin:0 0 12px;color:#333;font-size:15px;line-height:1.7;">${p}</p>`).join('');
+      .map(p => `<p style="margin:0 0 12px;color:#333;font-size:15px;line-height:1.7;">${escapeHtml(p)}</p>`).join('');
 
     // ── Build active coupons section ──
     const now = new Date();
@@ -2116,20 +2165,24 @@ const store = {
     // Send in batches to avoid SMTP throttling
     for (const email of customerEmails) {
       try {
-        await mailer.sendMail({
+        const info = await mailer.sendMail({
           from: fromAddr,
+          replyTo,
           to: email,
           subject: subject,
           html: html
         });
-        sentCount++;
+        if ((info.accepted || []).length > 0 && !(info.rejected || []).length) sentCount++;
         console.log(`[Broadcast] Sent offer to ${email}`);
       } catch (err) {
-        console.error(`[Broadcast] Failed to send to ${email}:`, err.message);
+        console.error(`[Broadcast] Failed to send to ${email}:`, err.code || err.name, err.responseCode || '', err.message);
       }
     }
 
     console.log(`[Broadcast] Complete: ${sentCount}/${customerEmails.length} emails sent`);
+    if (sentCount === 0) {
+      throw new Error('SMTP accepted zero broadcast emails.');
+    }
     return { sentCount, totalCustomers: customerEmails.length };
   },
 
