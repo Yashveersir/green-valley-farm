@@ -11,6 +11,28 @@ const { ipKeyGenerator } = require('express-rate-limit');
 const store = require('./models/store');
 const db = require('./models/db');
 
+// ── Process-Level Uncaught Error Handlers ──
+process.on('uncaughtException', (err) => {
+  console.error('🔥 CRITICAL: Uncaught Exception:', err.stack || err.message);
+  
+  store.notifyAdminsOfError(err, null, { type: 'Process Uncaught Exception (Crash)' })
+    .catch(mailErr => console.error('Failed to notify admins of uncaughtException:', mailErr.message))
+    .finally(() => {
+      // Force exit after a small timeout so connection stays open long enough to send email
+      setTimeout(() => {
+        process.exit(1);
+      }, 3000);
+    });
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('🔥 CRITICAL: Unhandled Rejection at:', promise, 'reason:', reason);
+  
+  const err = reason instanceof Error ? reason : new Error(String(reason));
+  store.notifyAdminsOfError(err, null, { type: 'Process Unhandled Rejection' })
+    .catch(mailErr => console.error('Failed to notify admins of unhandledRejection:', mailErr.message));
+});
+
 const authRouter = require('./routes/auth');
 const productsRouter = require('./routes/products');
 const cartRouter = require('./routes/cart');
@@ -99,6 +121,14 @@ const reviewLimiter = rateLimit({
   keyGenerator: (req) => `${ipKeyGenerator(req.ip)}:${req.userId || 'guest'}:${req.params.id || 'review'}`
 });
 
+const errorReportLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 15,                   // max 15 reports per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Too many error reports from this IP.' }
+});
+
 function reviewPayloadGuard(req, res, next) {
   if (!['POST', 'PUT'].includes(req.method) || !/^\/api\/products\/[^/]+\/reviews$/.test(req.path)) {
     return next();
@@ -167,6 +197,36 @@ app.use(globalLimiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(reviewPayloadGuard);
+
+// ── Client-Side Error Reporting API ──
+app.post('/api/errors/report', errorReportLimiter, async (req, res) => {
+  try {
+    const { error, url, userAgent, userId } = req.body;
+    if (!error) {
+      return res.status(400).json({ success: false, error: 'Error details required' });
+    }
+
+    const errObj = {
+      message: error.message || 'Unknown client error',
+      stack: error.stack || 'N/A',
+      source: error.source || null,
+      lineno: error.lineno || null,
+      colno: error.colno || null
+    };
+
+    await store.notifyAdminsOfError(errObj, null, {
+      type: 'Client-Side Error',
+      url: url || 'N/A',
+      userAgent: userAgent || 'N/A',
+      userId: userId || 'N/A'
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Failed to process client-side error report:', err.message);
+    res.status(500).json({ success: false, error: 'Internal Server Error' });
+  }
+});
 
 app.get('/service-worker.js', (req, res) => {
   res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
@@ -471,9 +531,20 @@ app.get('/api/debug-deploy', (req, res) => {
   });
 });
 
+if (process.env.NODE_ENV !== 'production') {
+  app.get('/api/test-error-trigger', (req, res) => {
+    throw new Error('Test middleware error integration check');
+  });
+}
+
 // ── Global Error Handling Middleware ──
 app.use((err, req, res, next) => {
   console.error('[Global Error]:', err.stack || err.message);
+  
+  // Asynchronously notify admins of the error
+  store.notifyAdminsOfError(err, req).catch(mailErr => {
+    console.error('[Global Error Mailer Failed]:', mailErr.message);
+  });
   
   if (req.path.startsWith('/api/')) {
     return res.status(err.status || 500).json({

@@ -2,6 +2,81 @@
 // API Client — Green Valley Poultry Farm
 // ═══════════════════════════════════════
 
+// Global client-side error and crash tracker
+(function() {
+  let reportedCount = 0;
+  const maxReports = 5;
+  let isReporting = false;
+
+  function reportClientError(errorPayload) {
+    if (reportedCount >= maxReports || isReporting) return;
+    isReporting = true;
+
+    let userId = 'guest';
+    try {
+      const userStr = localStorage.getItem('gvf_store_user') || localStorage.getItem('gvf_admin_user');
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        if (user && user.id) userId = user.id;
+      }
+    } catch (_) {}
+
+    const payload = {
+      error: errorPayload,
+      url: window.location.href,
+      userAgent: navigator.userAgent,
+      userId: userId
+    };
+
+    fetch('/api/errors/report', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    })
+    .then(res => {
+      if (res.ok) reportedCount++;
+    })
+    .catch(err => {
+      console.warn('Failed to send error report to server:', err.message);
+    })
+    .finally(() => {
+      isReporting = false;
+    });
+  }
+
+  window.addEventListener('error', function(event) {
+    const error = event.error || {};
+    if (event.filename && event.filename.includes('/api/errors/report')) return;
+
+    reportClientError({
+      message: error.message || event.message || 'Script error',
+      stack: error.stack || 'N/A',
+      source: event.filename || 'N/A',
+      lineno: event.lineno || null,
+      colno: event.colno || null
+    });
+  });
+
+  window.addEventListener('unhandledrejection', function(event) {
+    const reason = event.reason || {};
+    if (isReporting) return;
+
+    const message = reason.message || String(reason || 'Unhandled promise rejection');
+    const stack = reason.stack || 'N/A';
+
+    reportClientError({
+      message: message,
+      stack: stack,
+      source: 'Promise Rejection',
+      lineno: null,
+      colno: null
+    });
+  });
+})();
+
+
 const API = {
   BASE: '/api',
   getStoragePrefix() {

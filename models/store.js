@@ -206,6 +206,10 @@ const mailer = nodemailer.createTransport({
   auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
 });
 
+let errorBuffer = [];
+let errorBufferTimeout = null;
+const ERROR_BUFFER_COOLDOWN_MS = 2 * 60 * 1000; // 2 minutes
+
 // Load products (using require ensures it is bundled by Vercel)
 let products = require('../data/products.json');
 
@@ -295,6 +299,141 @@ async function sendEmail(to, subject, html) {
   } catch (err) {
     console.error('[Email Error]:', err.code || err.name, err.responseCode || '', err.message);
     return { sent: false, mocked: false, accepted: [], rejected: [to], error: err.message };
+  }
+}
+
+async function getAdminsEmails() {
+  try {
+    const admins = await findUsers({ role: 'admin' });
+    if (admins.length > 0) {
+      return admins.map(u => u.email);
+    }
+  } catch (err) {
+    console.error('Failed to get admins from DB for error email:', err.message);
+  }
+  return ['sales.greenvalleyfarm@gmail.com']; // Fallback
+}
+
+async function sendGroupedErrorEmail(errors) {
+  const admins = await getAdminsEmails();
+  if (admins.length === 0) return;
+
+  const count = errors.length;
+  const subject = `⚠️ [ALERT] Green Valley Farm: ${count} Site Error${count > 1 ? 's' : ''} Detected`;
+  
+  let html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #f7f9fc; color: #333; margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: #fff; padding: 24px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .header { background: #b91c1c; color: white; padding: 16px; border-radius: 6px; margin-bottom: 24px; text-align: center; }
+        .header h2 { margin: 0; font-size: 22px; }
+        .error-card { border: 1px solid #fca5a5; border-left: 5px solid #ef4444; background: #fef2f2; padding: 16px; border-radius: 6px; margin-bottom: 20px; }
+        .error-title { font-weight: bold; color: #b91c1c; font-size: 16px; margin-bottom: 8px; }
+        .meta-table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 14px; }
+        .meta-table td { padding: 6px 8px; border-bottom: 1px solid #fee2e2; }
+        .meta-table td.label { font-weight: bold; width: 150px; color: #7f1d1d; }
+        .stack-trace { background: #1e293b; color: #f8fafc; padding: 12px; border-radius: 4px; font-family: monospace; font-size: 12px; overflow-x: auto; white-space: pre-wrap; word-break: break-all; margin-top: 10px; }
+        .footer { text-align: center; font-size: 12px; color: #64748b; margin-top: 24px; border-top: 1px solid #e2e8f0; padding-top: 16px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h2>🌿 Green Valley Poultry Farm - Error Report</h2>
+          <p style="margin: 4px 0 0 0; font-size: 14px;">${count} error(s) occurred between ${new Date(errors[0].time).toLocaleTimeString()} and ${new Date(errors[errors.length - 1].time).toLocaleTimeString()}</p>
+        </div>
+        <p>Dear Admin,</p>
+        <p>The system has captured the following error details:</p>
+  `;
+
+  errors.forEach((err, idx) => {
+    html += `
+      <div class="error-card">
+        <div class="error-title">#${idx + 1}: [${err.type}] - ${escapeHtml(err.message)}</div>
+        <table class="meta-table">
+          <tr><td class="label">Time:</td><td>${err.time}</td></tr>
+          <tr><td class="label">URL/Path:</td><td><code>${escapeHtml(err.url)}</code></td></tr>
+          <tr><td class="label">Method:</td><td>${err.method}</td></tr>
+          <tr><td class="label">Client IP:</td><td>${err.ip}</td></tr>
+          <tr><td class="label">User Agent:</td><td>${escapeHtml(err.userAgent)}</td></tr>
+          <tr><td class="label">User ID:</td><td><code>${escapeHtml(err.userId)}</code></td></tr>
+    `;
+    
+    if (err.source || err.lineno) {
+      html += `<tr><td class="label">Source:</td><td>${escapeHtml(err.source)}:${err.lineno}:${err.colno}</td></tr>`;
+    }
+    
+    html += `
+        </table>
+        <div style="font-weight: bold; color: #7f1d1d; font-size: 14px; margin-top: 12px;">Stack Trace:</div>
+        <div class="stack-trace">${escapeHtml(err.stack)}</div>
+      </div>
+    `;
+  });
+
+  html += `
+        <div class="footer">
+          This is an automated notification from Green Valley Poultry Farm error-monitoring system.<br>
+          Environment: ${process.env.NODE_ENV || 'development'}
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  for (const email of admins) {
+    await sendEmail(email, subject, html);
+  }
+}
+
+async function notifyAdminsOfError(error, req, additionalContext) {
+  const errDetails = {
+    type: (additionalContext && additionalContext.type) || 'Server Error',
+    message: error.message || error.error || String(error),
+    stack: error.stack || (error.error && error.error.stack) || 'N/A',
+    time: new Date().toISOString(),
+    url: (req ? (req.originalUrl || req.url) : null) || (additionalContext && additionalContext.url) || 'N/A',
+    method: (req ? req.method : null) || 'N/A',
+    ip: (req ? (req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress) : null) || 'N/A',
+    userAgent: (req ? req.headers['user-agent'] : null) || (additionalContext && additionalContext.userAgent) || 'N/A',
+    userId: (req ? (req.userId || (req.user && req.user.id)) : null) || (additionalContext && additionalContext.userId) || 'N/A',
+    source: error.source || (additionalContext && additionalContext.source) || null,
+    lineno: error.lineno || (additionalContext && additionalContext.lineno) || null,
+    colno: error.colno || (additionalContext && additionalContext.colno) || null
+  };
+
+  console.error(`[Error Alert Log]: ${errDetails.type} - ${errDetails.message}`);
+
+  if (process.env.VERCEL) {
+    await sendGroupedErrorEmail([errDetails]);
+    return;
+  }
+
+  errorBuffer.push(errDetails);
+
+  if (!errorBufferTimeout) {
+    const errorToSend = [...errorBuffer];
+    errorBuffer = [];
+    
+    errorBufferTimeout = setTimeout(async () => {
+      try {
+        if (errorBuffer.length > 0) {
+          const buffered = [...errorBuffer];
+          errorBuffer = [];
+          await sendGroupedErrorEmail(buffered);
+        }
+      } catch (err) {
+        console.error('[Error Buffer Timeout Error]:', err.message);
+      } finally {
+        errorBufferTimeout = null;
+      }
+    }, ERROR_BUFFER_COOLDOWN_MS);
+
+    await sendGroupedErrorEmail(errorToSend);
   }
 }
 
@@ -724,6 +863,9 @@ products = products.map(normalizeProduct);
 
 const store = {
   isInitialized: false,
+  async notifyAdminsOfError(error, req, additionalContext) {
+    return notifyAdminsOfError(error, req, additionalContext);
+  },
   // ══════ DATABASE INIT ══════
   async init() {
     if (this.isInitialized && this.dbConnected) return true;
