@@ -264,6 +264,16 @@ const App = {
     if (dd) dd.classList.toggle('open');
   },
 
+  handleMobileProfile(e) {
+    if (e) e.preventDefault();
+    const user = API.getUser();
+    if (!user) {
+      this.showModal('login');
+    } else {
+      this.toggleUserMenu();
+    }
+  },
+
   showModal(type) {
     this.closeModals();
     const el = document.getElementById(`modal-${type}`);

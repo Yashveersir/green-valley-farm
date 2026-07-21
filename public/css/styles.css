@@ -296,7 +296,9 @@
 }
 
 .theme-toggle .icon-sun,
-.theme-toggle .icon-moon {
+.theme-toggle .icon-moon,
+.theme-nav-toggle .icon-sun,
+.theme-nav-toggle .icon-moon {
   position: absolute;
   display: flex;
   align-items: center;
@@ -306,23 +308,27 @@
 }
 
 /* In Light Mode (default): Moon icon is visible (click to switch to dark) */
-.theme-toggle .icon-moon {
+.theme-toggle .icon-moon,
+.theme-nav-toggle .icon-moon {
   opacity: 1;
   transform: rotate(0deg) scale(1);
   color: #4f46e5;
 }
-.theme-toggle .icon-sun {
+.theme-toggle .icon-sun,
+.theme-nav-toggle .icon-sun {
   opacity: 0;
   transform: rotate(-90deg) scale(0.4);
   color: #f59e0b;
 }
 
 /* In Dark Mode: Sun icon is visible (click to switch to light) */
-[data-theme="dark"] .theme-toggle .icon-moon {
+[data-theme="dark"] .theme-toggle .icon-moon,
+[data-theme="dark"] .theme-nav-toggle .icon-moon {
   opacity: 0;
   transform: rotate(90deg) scale(0.4);
 }
-[data-theme="dark"] .theme-toggle .icon-sun {
+[data-theme="dark"] .theme-toggle .icon-sun,
+[data-theme="dark"] .theme-nav-toggle .icon-sun {
   opacity: 1;
   transform: rotate(0deg) scale(1);
   color: #f59e0b;
@@ -493,7 +499,8 @@ input, textarea, select { font-family: inherit; }
   background: rgba(255,255,255,0.08);
   border-color: var(--border);
 }
-.theme-nav-toggle {
+.theme-nav-toggle,
+.theme-nav-profile {
   display: none !important;
 }
 
@@ -2327,13 +2334,23 @@ input, textarea, select { font-family: inherit; }
   }
   .header-actions .icon-btn,
   .header-actions .theme-toggle,
-  .header-actions .cart-btn {
+  .header-actions .cart-btn,
+  .header-actions .user-avatar {
     width: 32px !important;
     height: 32px !important;
     flex-shrink: 0 !important;
     display: flex !important;
     visibility: visible !important;
     opacity: 1 !important;
+  }
+  .header-actions .auth-area {
+    flex-shrink: 0 !important;
+    display: flex !important;
+  }
+  .header-actions .btn {
+    flex-shrink: 0 !important;
+    padding: 6px 10px !important;
+    font-size: 12px !important;
   }
 
   .search-wrapper.open .search-input {
@@ -2397,9 +2414,14 @@ input, textarea, select { font-family: inherit; }
   .nav-link[data-page="home"]::before { content: '🏠'; }
   .nav-link[data-page="about"]::before { content: '🌾'; }
   .nav-link[data-page="orders"]::before { content: '📦'; }
-  .nav-link.theme-nav-toggle { display: flex !important; }
-  .nav-link.theme-nav-toggle::before { content: '🌙'; }
-  [data-theme="light"] .nav-link.theme-nav-toggle::before { content: '☀️'; }
+  .nav-link.theme-nav-profile { display: flex !important; }
+  .nav-link.theme-nav-profile::before { content: '👤'; }
+  .nav-link.theme-nav-toggle { 
+    display: flex !important; 
+    position: relative; 
+    align-items: center; 
+    justify-content: center;
+  }
   .nav-link.active {
     color: var(--accent);
     background: none;
