@@ -129,25 +129,16 @@
   --shadow-glow: 0 0 40px rgba(22,163,74,0.12);
 }
 
-/* ── Smooth theme transition ── */
-*, *::before, *::after {
+/* ── Smooth theme transition — MUST be after reset ── */
+/* Applied via JS class .theme-transitioning on <html> */
+.theme-transitioning *,
+.theme-transitioning *::before,
+.theme-transitioning *::after {
   transition:
-    background-color 0.3s var(--ease),
-    border-color 0.3s var(--ease),
-    color 0.3s var(--ease),
-    box-shadow 0.3s var(--ease);
-}
-/* Don't animate layout-affecting props globally */
-.btn, .product-card, .add-to-cart-btn, .cat-btn,
-.nav-link, .cart-item, .order-card, .about-card,
-.farm-photo-item, .user-avatar, .icon-btn, .cart-btn {
-  transition:
-    background-color 0.3s var(--ease),
-    border-color 0.3s var(--ease),
-    color 0.3s var(--ease),
-    box-shadow 0.3s var(--ease),
-    transform 0.22s var(--ease),
-    opacity 0.22s var(--ease);
+    background-color 0.35s ease,
+    border-color 0.35s ease,
+    color 0.35s ease,
+    box-shadow 0.35s ease !important;
 }
 
 /* ── Light theme body decorations ── */
@@ -221,44 +212,73 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: all var(--transition);
   cursor: pointer;
   position: relative;
   overflow: hidden;
   flex-shrink: 0;
 }
 .theme-toggle:hover {
-  background: rgba(255,255,255,0.06);
+  background: rgba(255,255,255,0.08);
   border-color: var(--border);
   color: var(--text);
 }
 [data-theme="light"] .theme-toggle:hover {
-  background: rgba(0,0,0,0.05);
+  background: rgba(0,0,0,0.06);
+  border-color: var(--border-strong);
 }
-.theme-toggle-icon {
+.theme-toggle:active {
+  transform: scale(0.92);
+}
+
+.theme-toggle .icon-sun,
+.theme-toggle .icon-moon {
   position: absolute;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.4s var(--spring);
+  transition: transform 0.4s var(--spring), opacity 0.3s ease;
+  pointer-events: none;
 }
-/* Moon icon — shown in dark mode */
-.theme-toggle .icon-moon {
-  opacity: 1;
-  transform: rotate(0deg) scale(1);
-}
+
+/* In Dark Mode (default): Sun icon is visible (click to turn on light) */
 .theme-toggle .icon-sun {
-  opacity: 0;
-  transform: rotate(90deg) scale(0.5);
-}
-/* Sun icon — shown in light mode */
-[data-theme="light"] .theme-toggle .icon-moon {
-  opacity: 0;
-  transform: rotate(-90deg) scale(0.5);
-}
-[data-theme="light"] .theme-toggle .icon-sun {
   opacity: 1;
   transform: rotate(0deg) scale(1);
+  color: #f59e0b;
 }
+.theme-toggle .icon-moon {
+  opacity: 0;
+  transform: rotate(-90deg) scale(0.4);
+  color: var(--text-muted);
+}
+
+/* In Light Mode: Moon icon is visible (click to turn on dark) */
+[data-theme="light"] .theme-toggle .icon-sun {
+  opacity: 0;
+  transform: rotate(90deg) scale(0.4);
+}
+[data-theme="light"] .theme-toggle .icon-moon {
+  opacity: 1;
+  transform: rotate(0deg) scale(1);
+  color: #6366f1;
+}
+
+/* Label text */
+.theme-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  transition: color 0.3s ease;
+}
+
+/* Dark mode: show "🌙 Dark" */
+.theme-toggle .label-dark  { display: inline; }
+.theme-toggle .label-light { display: none; }
+/* Light mode: show "☀️ Light" */
+[data-theme="light"] .theme-toggle .label-dark  { display: none; }
+[data-theme="light"] .theme-toggle .label-light { display: inline; }
+
 
 /* ═══ RESET & BASE ═══ */
 *, *::before, *::after {

@@ -53,12 +53,14 @@ const App = {
   // ── Theme (Light / Dark) ──
   initTheme() {
     const saved = localStorage.getItem('gvf_theme');
-    const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
-    const theme = saved || (prefersDark ? 'dark' : 'light');
+    // Default is DARK — only switch to light if explicitly saved as 'light'
+    // or if OS prefers light AND user has never manually overridden
+    const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? true;
+    const theme = saved ? saved : (prefersDark ? 'dark' : 'dark'); // Default dark always
     this.applyTheme(theme, false);
 
-    // Listen for OS preference changes (only if no manual override saved)
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+    // Sync with OS pref changes (only when no manual save)
+    window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener?.('change', (e) => {
       if (!localStorage.getItem('gvf_theme')) {
         this.applyTheme(e.matches ? 'dark' : 'light', true);
       }
@@ -66,8 +68,8 @@ const App = {
   },
 
   toggleTheme() {
-    const current = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
-    const next = current === 'dark' ? 'light' : 'dark';
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    const next = isLight ? 'dark' : 'light';
     localStorage.setItem('gvf_theme', next);
     this.applyTheme(next, true);
   },
@@ -76,13 +78,12 @@ const App = {
     const html = document.documentElement;
 
     if (animate) {
-      // Quick flash-free transition using a temporary overlay trick
-      html.style.setProperty('--theme-transition', '0.3s');
+      // Add transitioning class to enable smooth color transitions
+      html.classList.add('theme-transitioning');
     }
 
     if (theme === 'light') {
       html.setAttribute('data-theme', 'light');
-      // Update browser theme-color for mobile status bar
       document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#f8fafc');
     } else {
       html.removeAttribute('data-theme');
@@ -90,7 +91,8 @@ const App = {
     }
 
     if (animate) {
-      setTimeout(() => html.style.removeProperty('--theme-transition'), 400);
+      // Remove class after transition completes
+      setTimeout(() => html.classList.remove('theme-transitioning'), 400);
     }
   },
 
