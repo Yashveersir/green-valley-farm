@@ -1,43 +1,5 @@
 [
   {
-    "id": "prod-001",
-    "name": "Country Hen (Live)",
-    "category": "live-birds",
-    "description": "Free-range country hen raised on natural grain feed. Healthy, active birds with rich flavor. Perfect for traditional recipes and home farming.",
-    "price": 400,
-    "unit": "per bird",
-    "stock": 45,
-    "weight": "1.5 - 2.0 kg",
-    "emoji": "🐔",
-    "tags": [
-      "free-range",
-      "organic",
-      "live"
-    ],
-    "farmOrigin": "Green Valley Farm - Block A",
-    "imageUrl": "/product-images/live_country_hen_1775537506824.png",
-    "_id": "69d48ae08246b7e8ca484c4f"
-  },
-  {
-    "id": "prod-002",
-    "name": "Broiler Chicken (Live)",
-    "category": "live-birds",
-    "description": "Premium broiler chicken, well-fed and healthy. Tender meat ideal for grilling, roasting, and curries. Farm-fresh guaranteed.",
-    "price": 150,
-    "unit": "per kg",
-    "stock": 120,
-    "weight": "2.0 - 2.5 kg",
-    "emoji": "🐓",
-    "tags": [
-      "tender",
-      "farm-fresh",
-      "live"
-    ],
-    "farmOrigin": "Green Valley Farm - Block B",
-    "imageUrl": "/product-images/live_broiler_1775537522947.png",
-    "_id": "69d48ae08246b7e8ca484c50"
-  },
-  {
     "id": "prod-003",
     "name": "Farm Fresh Eggs",
     "category": "eggs",
@@ -46,7 +8,7 @@
     "unit": "per dozen",
     "stock": 200,
     "weight": "~720g (dozen)",
-    "emoji": "🥚",
+    "emoji": "\ud83e\udd5a",
     "tags": [
       "fresh",
       "daily",
@@ -65,7 +27,7 @@
     "unit": "per dozen",
     "stock": 85,
     "weight": "~780g (dozen)",
-    "emoji": "🥚",
+    "emoji": "\ud83e\udd5a",
     "tags": [
       "desi",
       "brown",
@@ -76,82 +38,6 @@
     "_id": "69d48ae08246b7e8ca484c52"
   },
   {
-    "id": "prod-005",
-    "name": "Live Duck",
-    "category": "live-birds",
-    "description": "Healthy farm-raised duck. Lean, flavorful meat popular in regional cuisines. Raised in natural pond environment for best quality.",
-    "price": 500,
-    "unit": "per bird",
-    "stock": 30,
-    "weight": "2.5 - 3.0 kg",
-    "emoji": "🦆",
-    "tags": [
-      "lean",
-      "farm-raised",
-      "live"
-    ],
-    "farmOrigin": "Green Valley Farm - Pond Area",
-    "imageUrl": "/product-images/live_duck_1775537574977.png",
-    "_id": "69d48ae08246b7e8ca484c53"
-  },
-  {
-    "id": "prod-006",
-    "name": "Farm Turkey",
-    "category": "live-birds",
-    "description": "Large, healthy turkey raised on premium feed. Perfect for festive occasions and large gatherings. Rich, succulent dark and white meat.",
-    "price": 1500,
-    "unit": "per bird",
-    "stock": 15,
-    "weight": "5.0 - 7.0 kg",
-    "emoji": "🦃",
-    "tags": [
-      "premium",
-      "festive",
-      "large"
-    ],
-    "farmOrigin": "Green Valley Farm - Block C",
-    "imageUrl": "/product-images/live_turkey_1775537591617.png",
-    "_id": "69d48ae08246b7e8ca484c54"
-  },
-  {
-    "id": "prod-007",
-    "name": "Quail (Pair)",
-    "category": "live-birds",
-    "description": "Small, delicate quails sold in pairs. Prized for their tender, flavorful meat. Excellent for gourmet dishes and specialty recipes.",
-    "price": 120,
-    "unit": "per pair",
-    "stock": 60,
-    "weight": "~200g each",
-    "emoji": "🐦",
-    "tags": [
-      "gourmet",
-      "delicate",
-      "pair"
-    ],
-    "farmOrigin": "Green Valley Farm - Aviary",
-    "imageUrl": "/product-images/live_quail_1775537609981.png",
-    "_id": "69d48ae08246b7e8ca484c55"
-  },
-  {
-    "id": "prod-008",
-    "name": "Guinea Fowl",
-    "category": "live-birds",
-    "description": "Exotic guinea fowl with distinctive spotted plumage. Lean, gamey-flavored meat that's a delicacy. Also excellent as pest control birds.",
-    "price": 600,
-    "unit": "per bird",
-    "stock": 20,
-    "weight": "1.5 - 2.0 kg",
-    "emoji": "🐤",
-    "tags": [
-      "exotic",
-      "lean",
-      "gamey"
-    ],
-    "farmOrigin": "Green Valley Farm - Block D",
-    "imageUrl": "/product-images/guinea_fowl_1775537633255.png",
-    "_id": "69d48ae08246b7e8ca484c56"
-  },
-  {
     "id": "prod-009",
     "name": "Chicken Drumsticks",
     "category": "cuts",
@@ -160,7 +46,7 @@
     "unit": "per kg",
     "stock": 75,
     "weight": "1 kg pack",
-    "emoji": "🍗",
+    "emoji": "\ud83c\udf57",
     "tags": [
       "ready-to-cook",
       "tender",
@@ -179,7 +65,7 @@
     "unit": "per kg",
     "stock": 50,
     "weight": "1 kg pack",
-    "emoji": "🥩",
+    "emoji": "\ud83e\udd69",
     "tags": [
       "boneless",
       "high-protein",
@@ -198,7 +84,7 @@
     "unit": "per dozen",
     "stock": 40,
     "weight": "~750g (dozen)",
-    "emoji": "🌿",
+    "emoji": "\ud83c\udf3f",
     "tags": [
       "organic",
       "certified",
@@ -217,7 +103,7 @@
     "unit": "per half-dozen",
     "stock": 35,
     "weight": "~480g (half dozen)",
-    "emoji": "🥚",
+    "emoji": "\ud83e\udd5a",
     "tags": [
       "duck",
       "creamy",
@@ -236,7 +122,7 @@
     "unit": "per kg",
     "stock": 65,
     "weight": "1 kg pack",
-    "emoji": "🍗",
+    "emoji": "\ud83c\udf57",
     "tags": [
       "wings",
       "bbq",
@@ -255,7 +141,7 @@
     "unit": "per piece",
     "stock": 40,
     "weight": "1.5 - 2.0 kg",
-    "emoji": "🐔",
+    "emoji": "\ud83d\udc14",
     "tags": [
       "whole",
       "cleaned",
@@ -274,7 +160,7 @@
     "unit": "per 500g",
     "stock": 55,
     "weight": "500g pack",
-    "emoji": "🥘",
+    "emoji": "\ud83e\udd58",
     "tags": [
       "minced",
       "kebab",
