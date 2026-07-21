@@ -170,74 +170,94 @@
   }
 }
 
-/* ── Hero & About Banner Photo Overlays (Always High-Contrast & Crisp White Text) ── */
-.hero-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
+/* ── LIGHT MODE HERO & BANNER VISIBILITY (Bright Photo + Sharp Crisp Text) ── */
+[data-theme="light"] .hero-overlay {
   background: linear-gradient(
-    135deg,
-    rgba(0, 0, 0, 0.88) 0%,
-    rgba(0, 0, 0, 0.65) 50%,
-    rgba(0, 0, 0, 0.45) 100%
+    90deg,
+    rgba(248,250,252,0.96) 0%,
+    rgba(248,250,252,0.85) 35%,
+    rgba(248,250,252,0.30) 70%,
+    rgba(248,250,252,0.05) 100%
   ) !important;
 }
-.hero-title {
-  color: #ffffff !important;
+[data-theme="light"] .hero-overlay::after {
+  display: none !important;
 }
-.hero-title .line-accent {
-  background: linear-gradient(135deg, #22c55e 0%, #86efac 50%, #22c55e 100%) !important;
+[data-theme="light"] .hero-title {
+  color: #0f172a !important;
+}
+[data-theme="light"] .hero-title .line-accent {
+  background: linear-gradient(135deg, #16a34a 0%, #22c55e 100%) !important;
   -webkit-background-clip: text !important;
   -webkit-text-fill-color: transparent !important;
   background-clip: text !important;
 }
-.hero-desc {
-  color: rgba(255, 255, 255, 0.90) !important;
+[data-theme="light"] .hero-desc {
+  color: #334155 !important;
+  font-weight: 500 !important;
 }
-.hero-stats .stat-num {
-  color: #ffffff !important;
+[data-theme="light"] .hero-stats .stat-num {
+  color: #0f172a !important;
 }
-.hero-stats .stat-label {
-  color: rgba(255, 255, 255, 0.70) !important;
+[data-theme="light"] .hero-stats .stat-label {
+  color: #64748b !important;
 }
-.trust-strip {
-  border-top: 1px solid rgba(255, 255, 255, 0.15) !important;
+[data-theme="light"] .trust-strip {
+  border-top: 1px solid rgba(0,0,0,0.12) !important;
 }
-.trust-item {
-  color: rgba(255, 255, 255, 0.88) !important;
+[data-theme="light"] .trust-item {
+  color: #475569 !important;
+  font-weight: 500 !important;
 }
-.farm-leadership-badge {
-  background: rgba(14, 14, 14, 0.82) !important;
-  backdrop-filter: blur(16px) !important;
-  border: 1px solid rgba(255, 255, 255, 0.15) !important;
-  color: #ffffff !important;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4) !important;
+[data-theme="light"] .farm-leadership-badge {
+  background: rgba(255,255,255,0.90) !important;
+  backdrop-filter: blur(20px) !important;
+  border: 1px solid rgba(0,0,0,0.12) !important;
+  color: #0f172a !important;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.12) !important;
+}
+[data-theme="light"] .hero-cta-group .btn-outline {
+  background: rgba(255,255,255,0.85) !important;
+  border: 1px solid rgba(0,0,0,0.15) !important;
+  color: #0f172a !important;
+  backdrop-filter: blur(12px) !important;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.06) !important;
+}
+[data-theme="light"] .hero-cta-group .btn-outline:hover {
+  background: #ffffff !important;
+  border-color: rgba(0,0,0,0.3) !important;
+  color: #0f172a !important;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.1) !important;
 }
 
-/* About Farm Hero Text visibility */
-.about-hero .about-overlay {
-  background: rgba(0, 0, 0, 0.70) !important;
+/* Light Theme About Farm Hero */
+[data-theme="light"] .about-hero .about-overlay {
+  background: linear-gradient(
+    180deg,
+    rgba(248,250,252,0.85) 0%,
+    rgba(248,250,252,0.60) 60%,
+    rgba(248,250,252,0.95) 100%
+  ) !important;
 }
-.about-hero-text h2 {
-  color: #ffffff !important;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5) !important;
+[data-theme="light"] .about-hero-text h2 {
+  color: #0f172a !important;
+  text-shadow: 0 1px 4px rgba(255,255,255,0.8) !important;
 }
-.about-hero-text p {
-  color: rgba(255, 255, 255, 0.90) !important;
-  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.5) !important;
+[data-theme="light"] .about-hero-text p {
+  color: #334155 !important;
+  font-weight: 500 !important;
 }
 
-/* Hero outline buttons ("Our Story", "Install App") over dark overlay */
-.hero-cta-group .btn-outline {
-  background: rgba(255, 255, 255, 0.12) !important;
-  border: 1px solid rgba(255, 255, 255, 0.28) !important;
-  color: #ffffff !important;
-  backdrop-filter: blur(8px) !important;
-}
-.hero-cta-group .btn-outline:hover {
-  background: rgba(255, 255, 255, 0.22) !important;
-  border-color: rgba(255, 255, 255, 0.45) !important;
-  color: #ffffff !important;
+/* Mobile Light Theme Hero Overlay */
+@media (max-width: 768px) {
+  [data-theme="light"] .hero-overlay {
+    background: linear-gradient(
+      180deg,
+      rgba(248,250,252,0.96) 0%,
+      rgba(248,250,252,0.85) 60%,
+      rgba(248,250,252,0.20) 100%
+    ) !important;
+  }
 }
 
 /* ── Light theme preloader ── */
