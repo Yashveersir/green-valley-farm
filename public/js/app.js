@@ -50,6 +50,7 @@ const App = {
   },
 
   initScrollAnimations() {
+    // Scroll reveal observer
     const observer = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
@@ -57,10 +58,19 @@ const App = {
           observer.unobserve(entry.target);
         }
       });
-    }, { threshold: 0.1, rootMargin: "0px 0px -50px 0px" });
-
+    }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
     this.scrollObserver = observer;
     document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+    // Scroll progress bar
+    const progressBar = document.getElementById('scroll-progress');
+    if (progressBar) {
+      window.addEventListener('scroll', () => {
+        const scrollTop = window.scrollY;
+        const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+        progressBar.style.width = docHeight > 0 ? `${(scrollTop / docHeight) * 100}%` : '0%';
+      }, { passive: true });
+    }
   },
 
   initPwa() {
@@ -540,8 +550,9 @@ const App = {
   // ── Events ──
   bindEvents() {
     window.addEventListener('scroll', () => {
-      document.getElementById('main-header').classList.toggle('scrolled', window.scrollY > 50);
-    });
+      const header = document.getElementById('main-header');
+      if (header) header.classList.toggle('scrolled', window.scrollY > 40);
+    }, { passive: true });
     const searchToggle = document.getElementById('search-toggle');
     const searchWrapper = document.getElementById('search-wrapper');
     const searchInput = document.getElementById('search-input');

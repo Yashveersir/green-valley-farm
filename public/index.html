@@ -16,7 +16,7 @@
   <meta name="keywords" content="poultry farm, fresh chicken, organic eggs, free-range poultry, farm delivery, Green Valley, Bihar poultry, buy chicken online">
   <meta name="author" content="Green Valley Poultry Farm">
   <meta name="robots" content="index, follow">
-  <meta name="theme-color" content="#1a4d2e">
+  <meta name="theme-color" content="#070707">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Green Valley">
@@ -51,7 +51,7 @@
   <link rel="icon" type="image/png" href="/images/logo.png">
   <link rel="manifest" href="/manifest.json">
   <link rel="apple-touch-icon" href="/images/icon-192.png">
-  <link rel="stylesheet" href="/css/styles.css?v=products-20260502">
+  <link rel="stylesheet" href="/css/styles.css?v=ui-20260722">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -105,6 +105,8 @@
   </script>
 </head>
 <body>
+  <!-- SCROLL PROGRESS BAR -->
+  <div id="scroll-progress"></div>
   <!-- PRELOADER ANIMATION -->
   <div id="gvf-preloader" class="gvf-preloader">
     <div class="preloader-content">
@@ -125,29 +127,31 @@
   </a>
 
   <header class="header" id="main-header">
-    <div class="header-inner">
-      <a href="#" class="logo" onclick="App.navigate('home')">
-        <img src="/images/logo.png" alt="Logo" decoding="async" style="height:42px;width:42px;object-fit:cover;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
-        <div class="logo-text"><span class="logo-name">Green Valley</span><span class="logo-sub">Poultry Farm</span></div>
-      </a>
-      <nav class="nav" id="main-nav">
-        <a href="#" class="nav-link active" data-page="home" onclick="App.navigate('home')">Shop</a>
-        <a href="#" class="nav-link" data-page="about" onclick="App.navigate('about')">Our Farm</a>
-        <a href="#" class="nav-link" data-page="orders" onclick="App.navigate('orders')">My Orders</a>
-      </nav>
-      <div class="header-actions">
-        <div class="search-wrapper" id="search-wrapper">
-          <button class="icon-btn search-toggle" id="search-toggle" aria-label="Search">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <div class="header-inner-wrap">
+      <div class="header-inner">
+        <a href="#" class="logo" onclick="App.navigate('home')">
+          <img src="/images/logo.png" alt="Logo" decoding="async" style="height:36px;width:36px;object-fit:cover;border-radius:50%;">
+          <div class="logo-text"><span class="logo-name">Green Valley</span><span class="logo-sub">Poultry Farm</span></div>
+        </a>
+        <nav class="nav" id="main-nav">
+          <a href="#" class="nav-link active" data-page="home" onclick="App.navigate('home')">Shop</a>
+          <a href="#" class="nav-link" data-page="about" onclick="App.navigate('about')">Our Farm</a>
+          <a href="#" class="nav-link" data-page="orders" onclick="App.navigate('orders')">My Orders</a>
+        </nav>
+        <div class="header-actions">
+          <div class="search-wrapper" id="search-wrapper">
+            <button class="icon-btn search-toggle" id="search-toggle" aria-label="Search">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            </button>
+            <input type="text" class="search-input" id="search-input" placeholder="Search products...">
+          </div>
+          <button class="cart-btn" id="cart-btn" onclick="App.navigate('cart')" aria-label="View Cart">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+            <span class="cart-badge" id="cart-badge">0</span>
           </button>
-          <input type="text" class="search-input" id="search-input" placeholder="Search products...">
-        </div>
-        <button class="cart-btn" id="cart-btn" onclick="App.navigate('cart')" aria-label="View Cart">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
-          <span class="cart-badge" id="cart-badge">0</span>
-        </button>
-        <div class="auth-area" id="auth-area">
-          <button class="btn btn-sm btn-primary" id="login-btn" onclick="App.showModal('login')">Login</button>
+          <div class="auth-area" id="auth-area">
+            <button class="btn btn-sm btn-primary" id="login-btn" onclick="App.showModal('login')">Login</button>
+          </div>
         </div>
       </div>
     </div>
@@ -160,34 +164,43 @@
     <section class="page page-home active" id="page-home">
       <div class="hero" id="hero-section">
         <div class="hero-bg"><picture><source srcset="/myImage/InShot_20260407_084519484.jpg.webp" type="image/webp"><img src="/myImage/InShot_20260407_084519484.jpg.jpeg" alt="Green Valley Poultry Farm — Panoramic View" class="hero-img" fetchpriority="high" decoding="async"></picture><div class="hero-overlay"></div></div>
-        <div class="farm-leadership-badge" style="z-index:10; background:rgba(10,26,16,0.6); backdrop-filter:blur(8px); padding:16px 24px; border-radius:12px; border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.9); box-shadow:0 8px 24px rgba(0,0,0,0.3);">
-          <div style="font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--accent); margin-bottom:6px;">Farm Leadership</div>
-          <div style="font-size:16px; font-weight:700;">Owned by ANJIV SINGH</div>
-          <div style="font-size:13px; font-weight:400; opacity:0.8; margin-top:2px;">Managed by Yashveer Singh</div>
+        <div class="farm-leadership-badge">
+          <div style="font-size:10px; text-transform:uppercase; letter-spacing:1px; color:var(--accent); margin-bottom:5px; font-weight:700;">Farm Leadership</div>
+          <div style="font-size:15px; font-weight:700; letter-spacing:-0.02em;">Owned by ANJIV SINGH</div>
+          <div style="font-size:12px; font-weight:400; opacity:0.6; margin-top:2px;">Managed by Yashveer Singh</div>
         </div>
         <div class="hero-content">
-          <span class="hero-badge">🌿 100% Free-Range & Organic</span>
-          <h1 class="hero-title">Farm-Fresh Poultry,<br>Delivered with <span class="text-accent">Care</span></h1>
-          <p class="hero-desc">From our pastures to your plate — premium poultry raised the natural way.</p>
+          <span class="hero-badge">100% Free-Range &amp; Organic</span>
+          <h1 class="hero-title">Farm-Fresh Poultry,<br><span class="line-accent">Delivered with Care</span></h1>
+          <p class="hero-desc">From our pastures to your plate — premium poultry raised the natural way in Bihar's finest organic farmlands.</p>
           <div class="hero-stats">
             <div class="stat"><span class="stat-num">15+</span><span class="stat-label">Products</span></div>
             <div class="stat"><span class="stat-num">25</span><span class="stat-label">Acres</span></div>
             <div class="stat"><span class="stat-num">2018</span><span class="stat-label">Est.</span></div>
+            <div class="stat"><span class="stat-num">100%</span><span class="stat-label">Organic</span></div>
           </div>
-          <div class="hero-cta-group">
-            <button class="btn btn-primary btn-lg hero-cta" onclick="document.getElementById('products-section').scrollIntoView({behavior:'smooth'})">Browse Products ↓</button>
+          <div class="hero-cta hero-cta-group">
+            <button class="btn btn-primary btn-lg" onclick="document.getElementById('products-section').scrollIntoView({behavior:'smooth'})">Shop Now →</button>
+            <button class="btn btn-outline btn-lg" onclick="App.navigate('about')">Our Story</button>
             <button class="btn btn-outline btn-lg download-app-btn" id="pwa-install-btn" type="button" onclick="App.installPwa()" hidden>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
               Install App
             </button>
+          </div>
+          <div class="trust-strip">
+            <div class="trust-item"><span>✓</span><span>Free-range certified</span></div>
+            <div class="trust-item"><span>✓</span><span>Same-day delivery</span></div>
+            <div class="trust-item"><span>✓</span><span>Secure checkout</span></div>
+            <div class="trust-item"><span>✓</span><span>COD available</span></div>
           </div>
         </div>
       </div>
       <div class="products-header" id="products-section">
+        <div class="section-tag">Fresh From Our Farm</div>
         <h2 class="section-title">Our <span class="text-accent">Products</span></h2>
-        <p class="section-desc">Handpicked poultry products from our farm</p>
+        <p class="section-desc">Handpicked poultry products, raised naturally on our 25-acre farm</p>
         <div style="display:flex;justify-content:flex-end;margin-bottom:14px;">
-          <select onchange="App.setProductSort(this.value)" style="padding:10px 12px;background:var(--bg-surface);border:1px solid var(--border-subtle);color:var(--text);border-radius:10px;">
+          <select onchange="App.setProductSort(this.value)" style="padding:9px 14px;background:var(--bg-surface);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);font-family:var(--font);font-size:13px;cursor:pointer;outline:none;">
             <option value="featured">Featured</option>
             <option value="rating">Top Rated</option>
             <option value="reviews">Most Reviewed</option>
@@ -306,7 +319,7 @@
 
   <footer class="footer">
     <div class="footer-inner">
-      <div class="footer-brand"><span class="logo-icon">🐔</span><div><strong>Green Valley Poultry Farm</strong><p>Farm-Fresh Poultry, Delivered with Care</p></div></div>
+      <div class="footer-brand"><span style="font-size:28px;">🐓</span><div><strong>Green Valley Poultry Farm</strong><p>Farm-Fresh Poultry, Delivered with Care since 2018</p></div></div>
       <div class="footer-links">
         <div class="footer-col"><h4>Quick Links</h4><a href="#" onclick="App.navigate('home')">Shop</a><a href="#" onclick="App.navigate('about')">Our Farm</a><a href="#" onclick="App.navigate('orders')">My Orders</a><a href="/privacy.html">Privacy Policy</a><a href="/terms.html">Terms of Service</a></div>
         <div class="footer-col"><h4>Categories</h4><a href="#" onclick="App.browseCategory('eggs', { direct: true }); return false;">Eggs</a><a href="#" onclick="App.browseCategory('cuts', { direct: true }); return false;">Cuts & Parts</a></div>
