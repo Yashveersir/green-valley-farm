@@ -26,9 +26,20 @@ const App = {
   couponDiscount: 0,
   farmCoords: { lat: 26.2929, lng: 85.3947 },
 
+  escapeHTML(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  },
+
   async init() {
     this.runPreloader();
     this.bindEvents();
+    this.initScrollAnimations();
     this.initPwa();
     document.body.dataset.page = this.currentPage;
     await this.checkAuth();
@@ -36,6 +47,20 @@ const App = {
     await this.openProductFromLocation();
     await this.initGoogleAuth();
     this.updateCartBadge();
+  },
+
+  initScrollAnimations() {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('active');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.1, rootMargin: "0px 0px -50px 0px" });
+
+    this.scrollObserver = observer;
+    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
   },
 
   initPwa() {
@@ -587,21 +612,21 @@ const App = {
       let sc = 'in-stock', st = 'In Stock';
       if (p.stock <= 0) { sc = 'out-of-stock'; st = 'Out of Stock'; }
       else if (p.stock <= 20) { sc = 'low-stock'; st = `Only ${p.stock} left`; }
-      return `<div class="product-card" style="animation:fadeInUp 0.4s ease ${i*0.05}s both">
+      return `<div class="product-card reveal" style="animation-delay: ${i*0.05}s">
         <div class="product-card-img ${p.category}">
           ${this.productImageMarkup(p, i)}
           ${p.imageUrl ? '<div class="product-card-img-overlay"></div>' : ''}
           <span class="stock-badge ${sc}">${st}</span>
         </div>
         <div class="product-card-body">
-          <div class="product-card-tags">${p.tags.slice(0,2).map(t=>`<span class="product-tag">${t}</span>`).join('')}</div>
-          <h3 class="product-card-name">${p.name}</h3>
+          <div class="product-card-tags">${p.tags.slice(0,2).map(t=>`<span class="product-tag">${this.escapeHTML(t)}</span>`).join('')}</div>
+          <h3 class="product-card-name">${this.escapeHTML(p.name)}</h3>
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;color:var(--text-muted);font-size:13px;">
             <span style="color:#f5b301;">${this.renderStars(p.averageRating || 0, true)}</span>
             <span>${p.reviewCount ? `${p.averageRating || 0} (${p.reviewCount})` : 'No ratings yet'}</span>
           </div>
-          <p class="product-card-desc">${p.description}</p>
-          <div class="product-card-meta"><span>⚖️ ${p.weight}</span><span>📍 ${(p.farmOrigin||'').split(' - ')[1]||p.farmOrigin}</span></div>
+          <p class="product-card-desc">${this.escapeHTML(p.description)}</p>
+          <div class="product-card-meta"><span>⚖️ ${this.escapeHTML(p.weight)}</span><span>📍 ${this.escapeHTML((p.farmOrigin||'').split(' - ')[1]||p.farmOrigin)}</span></div>
           <div class="product-card-footer">
             <div class="product-card-price">₹${p.price} <small>/ ${p.unit}</small></div>
             <div id="price-hint-${p.id}" style="font-size:12px; color:var(--primary); margin-bottom:6px; font-weight:600; display:none;"></div>
@@ -618,6 +643,11 @@ const App = {
           </div>
         </div></div>`;
     }).join('');
+    
+    // Observe new product cards for scroll animation
+    if (this.scrollObserver) {
+      grid.querySelectorAll('.reveal').forEach(el => this.scrollObserver.observe(el));
+    }
   },
 
   async viewProductDetails(id) {
@@ -713,15 +743,15 @@ const App = {
           <div style="padding:14px 0;border-top:1px solid var(--border-subtle);">
             <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:6px;">
               <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                <strong style="font-size:14px;">${review.userName}</strong>
+                <strong style="font-size:14px;">${this.escapeHTML(review.userName)}</strong>
                 ${review.updatedAt ? `<span style="font-size:11px;color:var(--accent);background:rgba(212,167,69,0.1);border:1px solid rgba(212,167,69,0.2);padding:2px 8px;border-radius:999px;">Edited</span>` : ''}
               </div>
               <span style="font-size:12px;color:var(--text-muted);">${new Date(review.updatedAt || review.createdAt).toLocaleDateString('en-IN')}</span>
             </div>
             <div style="color:#f5b301;font-size:14px;margin-bottom:6px;">${this.renderStars(review.rating, true)}</div>
             ${review.updatedAt ? `<div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;">Updated ${new Date(review.updatedAt).toLocaleString('en-IN', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })}</div>` : ''}
-            <p style="margin:0;color:var(--text-secondary);font-size:13px;line-height:1.5;">${review.comment}</p>
-            ${(review.photos || []).length ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">${review.photos.map(photo => `<a href="${photo.url}" target="_blank" rel="noreferrer"><img src="${photo.url}" alt="Review photo" style="width:76px;height:76px;object-fit:cover;border-radius:10px;border:1px solid var(--border-subtle);"></a>`).join('')}</div>` : ''}
+            <p style="margin:0;color:var(--text-secondary);font-size:13px;line-height:1.5;">${this.escapeHTML(review.comment)}</p>
+            ${(review.photos || []).length ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">${review.photos.map(photo => `<a href="${this.escapeHTML(photo.url)}" target="_blank" rel="noreferrer"><img src="${this.escapeHTML(photo.url)}" alt="Review photo" style="width:76px;height:76px;object-fit:cover;border-radius:10px;border:1px solid var(--border-subtle);"></a>`).join('')}</div>` : ''}
           </div>
         `).join('');
       }
@@ -966,7 +996,7 @@ const App = {
       itemsEl.innerHTML = cart.items.map(item => `
         <div class="cart-item">
           <div class="cart-item-emoji">${item.emoji}</div>
-          <div class="cart-item-info"><div class="cart-item-name">${item.name}</div><div class="cart-item-price">₹${item.price} <span class="cart-item-unit">/ ${item.unit}</span></div><div class="cart-item-subtotal">Subtotal: ₹${item.subtotal}</div></div>
+          <div class="cart-item-info"><div class="cart-item-name">${this.escapeHTML(item.name)}</div><div class="cart-item-price">₹${item.price} <span class="cart-item-unit">/ ${this.escapeHTML(item.unit)}</span></div><div class="cart-item-subtotal">Subtotal: ₹${item.subtotal}</div></div>
           <div class="cart-item-actions"><div class="qty-controls"><button class="qty-btn" onclick="App.updateQty('${item.cartItemId}',${item.quantity-1})">−</button><span class="qty-value">${item.quantity}</span><button class="qty-btn" onclick="App.updateQty('${item.cartItemId}',${item.quantity+1})">+</button></div><button class="remove-btn" onclick="App.removeItem('${item.cartItemId}')">✕ Remove</button></div>
         </div>`).join('');
       summaryEl.innerHTML = `<h3 class="summary-title">Order Summary</h3>
@@ -1133,14 +1163,14 @@ const App = {
         return `
         <div class="order-card">
           <div class="order-card-header">
-            <div><span class="order-card-id">${o.orderId}</span><div class="order-date">Placed ${new Date(o.placedAt).toLocaleString('en-IN',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}</div></div>
+            <div><span class="order-card-id">${this.escapeHTML(o.orderId)}</span><div class="order-date">Placed ${new Date(o.placedAt).toLocaleString('en-IN',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}</div></div>
             <span class="order-status ${this.orderStatusClass(o.status)}">${this.formatOrderStatus(o.status)}</span>
           </div>
           <div class="order-progress">${this.renderOrderSteps(o.status)}</div>
-          <div class="order-card-items">${o.items.map(i => `<div class="order-card-item"><span>${i.emoji} ${i.name} × ${i.quantity}</span><span>₹${i.subtotal}</span></div>`).join('')}</div>
+          <div class="order-card-items">${o.items.map(i => `<div class="order-card-item"><span>${i.emoji} ${this.escapeHTML(i.name)} × ${i.quantity}</span><span>₹${i.subtotal}</span></div>`).join('')}</div>
           ${o.status === 'delivered' ? `
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 6px;">
-              ${o.items.map(i => `<button class="btn btn-outline btn-sm" onclick="App.viewProductDetails('${i.productId}')">Review ${i.name}</button>`).join('')}
+              ${o.items.map(i => `<button class="btn btn-outline btn-sm" onclick="App.viewProductDetails('${i.productId}')">Review ${this.escapeHTML(i.name)}</button>`).join('')}
             </div>
           ` : ''}
           <div class="order-policy ${canCancel ? 'active' : ''}">${canCancel ? `Cancellation available until ${deadlineText}` : this.getOrderPolicyText(o)}</div>

@@ -14,6 +14,16 @@ const AdminApp = {
   notifications: [],
   notifsInterval: null,
 
+  escapeHTML(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  },
+
   async init() {
     this.bindEvents();
     if (this.checkAuth()) {
@@ -225,12 +235,12 @@ const AdminApp = {
       const pmColor = isOnline ? '#4ade80' : (pm === 'UPI' ? '#60a5fa' : 'var(--text-muted)');
       return `
       <tr>
-        <td><strong>${o.orderId}</strong></td>
-        <td>${o.customer.name}</td>
+        <td><strong>${this.escapeHTML(o.orderId)}</strong></td>
+        <td>${this.escapeHTML(o.customer.name)}</td>
         <td>${new Date(o.placedAt).toLocaleDateString()}</td>
         <td>₹${o.totalPrice}</td>
         <td><span style="color:${pmColor};font-weight:600;font-size:12px;">${pmLabel}</span></td>
-        <td><span class="order-status" style="border: 1px solid rgba(255,255,255,0.1); padding:4px 10px; border-radius:12px; font-size:12px;">${o.status}</span></td>
+        <td><span class="order-status" style="border: 1px solid rgba(255,255,255,0.1); padding:4px 10px; border-radius:12px; font-size:12px;">${this.escapeHTML(o.status)}</span></td>
       </tr>
     `}).join('');
     
@@ -240,8 +250,8 @@ const AdminApp = {
     const low = this.products.filter(p => p.stock <= 10).sort((a,b) => a.stock - b.stock).slice(0, 5);
     document.getElementById('low-stock-body').innerHTML = low.map(p => `
       <tr>
-        <td>${p.emoji} ${p.name}</td>
-        <td style="text-transform:capitalize">${p.category.replace('-',' ')}</td>
+        <td>${p.emoji} ${this.escapeHTML(p.name)}</td>
+        <td style="text-transform:capitalize">${this.escapeHTML(p.category.replace('-',' '))}</td>
         <td><span style="color:${p.stock===0?'var(--danger)':'var(--accent)'};font-weight:bold">${p.stock}</span></td>
         <td><button class="btn btn-outline btn-sm" onclick="AdminApp.editProduct('${p.id}')">Update</button></td>
       </tr>
@@ -265,9 +275,9 @@ const AdminApp = {
     const tbody = document.getElementById('products-table-body');
     tbody.innerHTML = this.products.map(p => `
       <tr>
-        <td><div style="display:flex;align-items:center;gap:12px"><span style="font-size:24px">${p.emoji}</span> <strong>${p.name}</strong></div></td>
-        <td style="text-transform:capitalize">${p.category.replace('-',' ')}</td>
-        <td>₹${p.price} <small style="color:var(--text-muted)">/${p.unit}</small></td>
+        <td><div style="display:flex;align-items:center;gap:12px"><span style="font-size:24px">${p.emoji}</span> <strong>${this.escapeHTML(p.name)}</strong></div></td>
+        <td style="text-transform:capitalize">${this.escapeHTML(p.category.replace('-',' '))}</td>
+        <td>₹${p.price} <small style="color:var(--text-muted)">/${this.escapeHTML(p.unit)}</small></td>
         <td><span style="color:${p.stock<=10?'var(--accent)':'var(--text)'}">${p.stock}</span></td>
         <td>${p.reviewCount || 0}</td>
         <td>${p.reviewCount ? `${p.averageRating || 0} ★` : '—'}</td>
@@ -374,9 +384,9 @@ const AdminApp = {
     }
     tbody.innerHTML = this.customers.map(c => `
       <tr>
-        <td><strong>${c.name}</strong></td>
-        <td>${c.email}</td>
-        <td>${c.phone || '—'}</td>
+        <td><strong>${this.escapeHTML(c.name)}</strong></td>
+        <td>${this.escapeHTML(c.email)}</td>
+        <td>${this.escapeHTML(c.phone || '—')}</td>
         <td>${c.createdAt ? new Date(c.createdAt).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' }) : '—'}</td>
       </tr>
     `).join('');
@@ -515,19 +525,19 @@ const AdminApp = {
       const rpayId = o.razorpayPaymentId || '';
       return `
       <tr>
-        <td><strong>${o.orderId}</strong><br><small style="color:var(--text-muted)">${o.items.length} items</small></td>
-        <td>${o.customer.name}<br><small style="color:var(--text-muted)">${o.customer.phone}</small></td>
+        <td><strong>${this.escapeHTML(o.orderId)}</strong><br><small style="color:var(--text-muted)">${o.items.length} items</small></td>
+        <td>${this.escapeHTML(o.customer.name)}<br><small style="color:var(--text-muted)">${this.escapeHTML(o.customer.phone)}</small></td>
         <td>${new Date(o.placedAt).toLocaleString('en-IN', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</td>
         <td>
           <strong>₹${o.totalPrice}</strong><br>
-          <span style="color:${pmColor};font-weight:600;font-size:12px;">${pmIcon} ${pmLabel}</span>
+          <span style="color:${pmColor};font-weight:600;font-size:12px;">${pmIcon} ${this.escapeHTML(pmLabel)}</span>
         </td>
         <td>
           <span style="color:${verifiedColor};font-size:12px;font-weight:600;">${verified}</span>
-          ${rpayId ? `<br><small style="color:var(--text-muted);font-size:10px;cursor:pointer;" title="${rpayId}" onclick="navigator.clipboard.writeText('${rpayId}');AdminApp.toast('Payment ID copied!');">ID: ${rpayId.substring(0,14)}...</small>` : ''}
+          ${rpayId ? `<br><small style="color:var(--text-muted);font-size:10px;cursor:pointer;" title="${this.escapeHTML(rpayId)}" onclick="navigator.clipboard.writeText('${this.escapeHTML(rpayId)}');AdminApp.toast('Payment ID copied!');">ID: ${this.escapeHTML(rpayId).substring(0,14)}...</small>` : ''}
         </td>
         <td>
-          <select class="status-select" onchange="AdminApp.updateOrderStatus('${o.orderId}', this.value)" style="background:var(--bg-surface);color:var(--text);border:1px solid var(--border-subtle);padding:6px;border-radius:4px;">
+          <select class="status-select" onchange="AdminApp.updateOrderStatus('${this.escapeHTML(o.orderId)}', this.value)" style="background:var(--bg-surface);color:var(--text);border:1px solid var(--border-subtle);padding:6px;border-radius:4px;">
             <option value="confirmed" ${o.status==='confirmed'?'selected':''}>Confirmed</option>
             <option value="processing" ${o.status==='processing'?'selected':''}>Processing</option>
             <option value="dispatched" ${o.status==='dispatched'?'selected':''}>Dispatched</option>
@@ -536,8 +546,8 @@ const AdminApp = {
           </select>
         </td>
         <td style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button class="btn btn-outline btn-sm" onclick="AdminApp.showOrderDetails('${o.orderId}')">Details</button>
-          ${pm === 'UPI' && o.upiScreenshot ? `<button class="btn btn-outline btn-sm" style="color:var(--accent);border-color:var(--accent);" onclick="window.open('${o.upiScreenshot}','_blank')">View SS</button>` : ''}
+          <button class="btn btn-outline btn-sm" onclick="AdminApp.showOrderDetails('${this.escapeHTML(o.orderId)}')">Details</button>
+          ${pm === 'UPI' && o.upiScreenshot ? `<button class="btn btn-outline btn-sm" style="color:var(--accent);border-color:var(--accent);" onclick="window.open('${this.escapeHTML(o.upiScreenshot)}','_blank')">View SS</button>` : ''}
         </td>
       </tr>
     `}).join('');
@@ -584,12 +594,12 @@ const AdminApp = {
 
     tbody.innerHTML = this.reviews.map(review => `
       <tr>
-        <td><strong>${review.productName}</strong><br><small style="color:var(--text-muted)">${review.productId}</small></td>
-        <td>${review.userName}${review.updatedAt ? `<br><small style="color:var(--accent);font-weight:600;">Edited submission</small>` : ''}<br><small style="color:var(--text-muted)">${review.orderId || 'No order ref'}</small></td>
+        <td><strong>${this.escapeHTML(review.productName)}</strong><br><small style="color:var(--text-muted)">${this.escapeHTML(review.productId)}</small></td>
+        <td>${this.escapeHTML(review.userName)}${review.updatedAt ? `<br><small style="color:var(--accent);font-weight:600;">Edited submission</small>` : ''}<br><small style="color:var(--text-muted)">${this.escapeHTML(review.orderId || 'No order ref')}</small></td>
         <td style="color:#f5b301;font-size:14px;">${this.renderStars(review.rating)}</td>
-        <td style="max-width:320px;white-space:normal;color:var(--text-secondary);">${review.comment}${review.rejectionNote ? `<div style="margin-top:8px;color:#fda4af;font-size:12px;"><strong>Rejection note:</strong> ${review.rejectionNote}</div>` : ''}${(review.photos || []).length ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">${review.photos.map(photo => `<a href="${photo.url}" target="_blank" rel="noreferrer"><img src="${photo.url}" alt="Review photo" style="width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid var(--border-subtle);"></a>`).join('')}</div>` : ''}</td>
+        <td style="max-width:320px;white-space:normal;color:var(--text-secondary);">${this.escapeHTML(review.comment)}${review.rejectionNote ? `<div style="margin-top:8px;color:#fda4af;font-size:12px;"><strong>Rejection note:</strong> ${this.escapeHTML(review.rejectionNote)}</div>` : ''}${(review.photos || []).length ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">${review.photos.map(photo => `<a href="${this.escapeHTML(photo.url)}" target="_blank" rel="noreferrer"><img src="${this.escapeHTML(photo.url)}" alt="Review photo" style="width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid var(--border-subtle);"></a>`).join('')}</div>` : ''}</td>
         <td>${new Date(review.createdAt).toLocaleString('en-IN', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' })}${review.updatedAt ? `<br><small style="color:var(--text-muted)">Updated ${new Date(review.updatedAt).toLocaleString('en-IN', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' })}</small>` : ''}</td>
-        <td><span class="order-status" style="border:1px solid rgba(255,255,255,0.12);padding:4px 10px;border-radius:12px;font-size:12px;text-transform:capitalize;">${review.status}</span></td>
+        <td><span class="order-status" style="border:1px solid rgba(255,255,255,0.12);padding:4px 10px;border-radius:12px;font-size:12px;text-transform:capitalize;">${this.escapeHTML(review.status)}</span></td>
         <td style="display:flex;gap:8px;flex-wrap:wrap;">
           <button class="btn btn-primary btn-sm" onclick="AdminApp.moderateReview('${review.id}', 'approved')">Approve</button>
           <button class="btn btn-outline btn-sm" onclick="AdminApp.moderateReview('${review.id}', 'rejected')">Reject</button>
@@ -655,10 +665,10 @@ const AdminApp = {
       return `
         <tr>
           <td>
-            <div style="font-weight:600;">${admin.name}</div>
+            <div style="font-weight:600;">${this.escapeHTML(admin.name)}</div>
           </td>
-          <td>${admin.email}</td>
-          <td>${admin.phone || '-'}</td>
+          <td>${this.escapeHTML(admin.email)}</td>
+          <td>${this.escapeHTML(admin.phone || '-')}</td>
           <td>
             <span class="badge ${isPermanent ? 'status-delivered' : 'status-processing'}">${isPermanent ? 'Yes' : 'No'}</span>
           </td>
@@ -779,8 +789,8 @@ const AdminApp = {
       <div class="notif-item ${!n.read ? 'unread' : ''}" onclick="AdminApp.markNotifRead('${n.id}', '${n.orderId}')">
         <div class="notif-icon">${n.type === 'new-order' ? '📦' : '🔔'}</div>
         <div class="notif-content">
-          <h4>${n.title}</h4>
-          <p>${n.message}</p>
+          <h4>${this.escapeHTML(n.title)}</h4>
+          <p>${this.escapeHTML(n.message)}</p>
           <span class="notif-time">${new Date(n.createdAt).toLocaleTimeString()}</span>
         </div>
       </div>

@@ -3,11 +3,14 @@ const router = express.Router();
 const store = require('../models/store');
 const { requireAuth } = require('../middleware/auth');
 
+// Utility to enforce string types
+const isStr = (val) => typeof val === 'string' && val.trim() !== '';
+
 async function verifyGoogleCredential(credential) {
   if (!process.env.GOOGLE_CLIENT_ID) {
     return { error: 'Google sign-in is not configured' };
   }
-  if (!credential) {
+  if (!isStr(credential)) {
     return { error: 'Google credential is required' };
   }
 
@@ -35,7 +38,7 @@ router.get('/config', (req, res) => {
 // POST /api/auth/send-otp
 router.post('/send-otp', async (req, res) => {
   const { email, action, userData } = req.body;
-  if (!email || !action) return res.status(400).json({ success: false, error: 'Email and action required' });
+  if (!isStr(email) || !isStr(action)) return res.status(400).json({ success: false, error: 'Valid email and action required' });
   const result = await store.sendAuthOtp(email, { action, userData });
   if (result.error) return res.status(400).json({ success: false, error: result.error });
   res.json({ success: true, otpToken: result.otpToken });
@@ -44,7 +47,8 @@ router.post('/send-otp', async (req, res) => {
 // POST /api/auth/verify-otp
 router.post('/verify-otp', async (req, res) => {
   const { email, otp, otpToken } = req.body;
-  if (!email || !otp) return res.status(400).json({ success: false, error: 'Email and OTP required' });
+  if (!isStr(email) || !isStr(otp)) return res.status(400).json({ success: false, error: 'Valid email and OTP required' });
+  if (otpToken !== undefined && typeof otpToken !== 'string') return res.status(400).json({ success: false, error: 'Invalid OTP token' });
   const result = await store.verifyAuthOtp(email, otp, otpToken);
   if (result.error) return res.status(400).json({ success: false, error: result.error });
   res.json({ success: true, ...result });
@@ -53,7 +57,9 @@ router.post('/verify-otp', async (req, res) => {
 // POST /api/auth/reset-password
 router.post('/reset-password', async (req, res) => {
   const { email, otp, newPassword, otpToken } = req.body;
-  if (!email || !otp || !newPassword) return res.status(400).json({ success: false, error: 'Email, OTP, and new Password required' });
+  if (!isStr(email) || !isStr(otp) || !isStr(newPassword)) {
+    return res.status(400).json({ success: false, error: 'Email, OTP, and new Password required and must be strings' });
+  }
   
   if (newPassword.length < 8) return res.status(400).json({ success: false, error: 'Password must be at least 8 characters' });
 
@@ -72,7 +78,10 @@ router.post('/reset-password', async (req, res) => {
 // POST /api/auth/register
 router.post('/register', async (req, res) => {
   const { name, email, password, phone } = req.body;
-  const result = await store.registerUser({ name, email, password, phone });
+  if (!isStr(name) || !isStr(email) || !isStr(password)) {
+    return res.status(400).json({ success: false, error: 'Valid name, email, and password are required' });
+  }
+  const result = await store.registerUser({ name, email, password, phone: String(phone || '') });
   if (result.error) return res.status(400).json({ success: false, error: result.error });
   res.status(201).json({ success: true, ...result });
 });
@@ -80,7 +89,7 @@ router.post('/register', async (req, res) => {
 // POST /api/auth/login
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
-  if (!email || !password) return res.status(400).json({ success: false, error: 'Email and password required' });
+  if (!isStr(email) || !isStr(password)) return res.status(400).json({ success: false, error: 'Valid email and password required' });
   const result = await store.loginUser(email, password);
   if (result.error) return res.status(401).json({ success: false, error: result.error });
   res.json({ success: true, ...result });
@@ -108,7 +117,7 @@ router.get('/me', requireAuth, (req, res) => {
 // POST /api/auth/refresh
 router.post('/refresh', async (req, res) => {
   const { refreshToken } = req.body || {};
-  if (!refreshToken) return res.status(401).json({ success: false, error: 'Refresh token required' });
+  if (!isStr(refreshToken)) return res.status(401).json({ success: false, error: 'Valid refresh token required' });
   const result = await store.refreshAuthToken(refreshToken);
   if (result.error) return res.status(401).json({ success: false, error: result.error });
   res.json({ success: true, ...result });
@@ -119,17 +128,23 @@ router.post('/logout', async (req, res) => {
   const token = req.headers.authorization?.replace('Bearer ', '');
   const { refreshToken } = req.body || {};
   if (token) store.logoutUser(token);
-  await store.logoutSession(refreshToken);
+  if (refreshToken && typeof refreshToken === 'string') await store.logoutSession(refreshToken);
   res.json({ success: true });
 });
 
 // PUT /api/auth/profile
 router.put('/profile', requireAuth, async (req, res) => {
   const { name, phone, newPassword } = req.body;
-  if (!name || !phone) return res.status(400).json({ success: false, error: 'Name and phone required' });
-  if (newPassword && newPassword.length < 8) return res.status(400).json({ success: false, error: 'Password must be at least 8 characters' });
+  if (!isStr(name) || (phone && typeof phone !== 'string')) {
+    return res.status(400).json({ success: false, error: 'Valid name and phone required' });
+  }
+  if (newPassword !== undefined) {
+    if (!isStr(newPassword) || newPassword.length < 8) {
+      return res.status(400).json({ success: false, error: 'Password must be at least 8 characters' });
+    }
+  }
   
-  const result = await store.updateUserProfile(req.userId, { name, phone, newPassword });
+  const result = await store.updateUserProfile(req.userId, { name, phone: phone || '', newPassword });
   if (result.error) return res.status(400).json({ success: false, error: result.error });
   res.json({ success: true, user: result.user });
 });

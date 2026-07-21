@@ -69,13 +69,24 @@ router.post('/verify-payment', async (req, res) => {
 
     // Payment successful! Create order in our system if orderDetails are provided
     if (orderDetails) {
-      const { name, phone, address } = orderDetails;
+      const { name, phone, address, timeSlot, deliveryCoords, couponCode } = orderDetails;
+      
+      let paidAmount;
+      try {
+        const rzpOrder = await razorpayInstance.orders.fetch(razorpay_order_id);
+        paidAmount = rzpOrder.amount / 100; // in INR
+      } catch (err) {
+        console.error('Failed to fetch Razorpay order for verification:', err);
+        return res.status(500).json({ success: false, error: 'Could not verify payment amount with Razorpay' });
+      }
+
       const result = await store.placeOrder(userId, { 
-        name, phone, address, 
+        name, phone, address, timeSlot, deliveryCoords, couponCode,
         paymentMethod: 'Razorpay Online',
         upiUtr: razorpay_payment_id, // Keeping this for backward compatibility or generic ID tracking
         razorpayOrderId: razorpay_order_id,
-        razorpayPaymentId: razorpay_payment_id
+        razorpayPaymentId: razorpay_payment_id,
+        paidAmount
       });
       
       if (result.error) return res.status(400).json({ success: false, error: result.error });

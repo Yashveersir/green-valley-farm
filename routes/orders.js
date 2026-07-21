@@ -2,13 +2,23 @@ const express = require('express');
 const router = express.Router();
 const store = require('../models/store');
 
+const escapeHtml = (unsafe) => {
+  if (unsafe === null || unsafe === undefined) return '';
+  return String(unsafe)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+};
+
 // POST /api/orders
 router.post('/', async (req, res) => {
   const userId = req.userId;
-  const { name, phone, address, paymentMethod, upiUtr, upiScreenshot } = req.body;
+  const { name, phone, address, paymentMethod, upiUtr, upiScreenshot, timeSlot, deliveryCoords, couponCode } = req.body;
   if (!name || !phone || !address) return res.status(400).json({ success: false, error: 'Name, phone, and address required' });
   try {
-    const result = await store.placeOrder(userId, { name, phone, address, paymentMethod, upiUtr, upiScreenshot });
+    const result = await store.placeOrder(userId, { name, phone, address, paymentMethod, upiUtr, upiScreenshot, timeSlot, deliveryCoords, couponCode });
     if (result.error) return res.status(400).json({ success: false, error: result.error });
     res.status(201).json({ success: true, order: result });
   } catch (err) {
@@ -49,7 +59,7 @@ router.get('/:orderId/invoice', async (req, res) => {
 
   const itemRows = order.items.map(i =>
     `<tr>
-      <td style="padding:12px;border-bottom:1px solid #eee;">${i.name}</td>
+      <td style="padding:12px;border-bottom:1px solid #eee;">${escapeHtml(i.name)}</td>
       <td style="padding:12px;border-bottom:1px solid #eee;text-align:center;">x${i.quantity}</td>
       <td style="padding:12px;border-bottom:1px solid #eee;text-align:right;">₹${i.subtotal}</td>
     </tr>`
@@ -100,15 +110,15 @@ router.get('/:orderId/invoice', async (req, res) => {
         <div class="details">
           <div>
             <h3 style="margin:0 0 8px;font-size:16px;color:#888;text-transform:uppercase;">Billed To</h3>
-            <p style="margin:0;font-weight:600;font-size:16px;">${order.customer.name}</p>
-            <p style="margin:4px 0 0;color:#555;max-width:250px;">${order.customer.address}</p>
-            <p style="margin:4px 0 0;color:#555;">Phone: ${order.customer.phone}</p>
+            <p style="margin:0;font-weight:600;font-size:16px;">${escapeHtml(order.customer.name)}</p>
+            <p style="margin:4px 0 0;color:#555;max-width:250px;">${escapeHtml(order.customer.address)}</p>
+            <p style="margin:4px 0 0;color:#555;">Phone: ${escapeHtml(order.customer.phone)}</p>
           </div>
           <div style="text-align: right;">
             <h3 style="margin:0 0 8px;font-size:16px;color:#888;text-transform:uppercase;">Payment Info</h3>
-            <p style="margin:0;"><strong>Method:</strong> ${order.paymentMethod || 'COD'}</p>
-            ${order.upiUtr ? `<p style="margin:4px 0 0;"><strong>Transaction ID:</strong> ${order.upiUtr}</p>` : ''}
-            <p style="margin:4px 0 0;"><strong>Status:</strong> <span style="color:#1a4d2e;font-weight:700;">${order.status.toUpperCase()}</span></p>
+            <p style="margin:0;"><strong>Method:</strong> ${escapeHtml(order.paymentMethod || 'COD')}</p>
+            ${order.upiUtr ? `<p style="margin:4px 0 0;"><strong>Transaction ID:</strong> ${escapeHtml(order.upiUtr)}</p>` : ''}
+            <p style="margin:4px 0 0;"><strong>Status:</strong> <span style="color:#1a4d2e;font-weight:700;">${escapeHtml(order.status).toUpperCase()}</span></p>
           </div>
         </div>
 

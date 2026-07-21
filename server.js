@@ -7,7 +7,7 @@ const path = require('path');
 const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
-const { ipKeyGenerator } = require('express-rate-limit');
+const { requireAuth, adminOnly, adminProductMutationsOnly } = require('./middleware/auth');
 const store = require('./models/store');
 const db = require('./models/db');
 
@@ -118,7 +118,7 @@ const reviewLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, error: 'Too many review requests. Please slow down and try again shortly.' },
-  keyGenerator: (req) => `${ipKeyGenerator(req.ip)}:${req.userId || 'guest'}:${req.params.id || 'review'}`
+  keyGenerator: (req) => `${req.ip}:${req.userId || 'guest'}:${req.params.id || 'review'}`
 });
 
 const errorReportLimiter = rateLimit({
@@ -280,24 +280,7 @@ async function authMiddleware(req, res, next) {
   next();
 }
 
-// Admin-only middleware
-function adminOnly(req, res, next) {
-  if (!req.user) return res.status(401).json({ success: false, error: 'Authentication required' });
-  if (req.userRole !== 'admin') return res.status(403).json({ success: false, error: 'Admin access required' });
-  next();
-}
-
-function requireAuth(req, res, next) {
-  if (!req.userId) return res.status(401).json({ success: false, error: 'Login required' });
-  next();
-}
-
-function adminProductMutationsOnly(req, res, next) {
-  if (['POST', 'PUT', 'DELETE'].includes(req.method) && req.userRole !== 'admin') {
-    return res.status(403).json({ success: false, error: 'Admin access required' });
-  }
-  next();
-}
+// Middlewares imported from middleware/auth.js
 
 // Apply ensureInit THEN authMiddleware to ALL /api routes (order matters!)
 app.use('/api', ensureInit, authMiddleware);

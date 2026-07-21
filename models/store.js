@@ -469,7 +469,7 @@ async function sendWelcomeEmail(user) {
     <p style="margin:4px 0 0;color:#aaa;font-size:11px;">This email was sent because you created an account on <a href="https://green-valley-farm.online/" style="color:#1a4d2e;text-decoration:none;">green-valley-farm.online</a></p>
   </td></tr>
 </table></td></tr></table></body></html>`;
-  await sendEmail(user.email, '🌿 Welcome to Green Valley Poultry Farm!', html);
+  return await sendEmail(user.email, '🌿 Welcome to Green Valley Poultry Farm!', html);
 }
 
 
@@ -502,7 +502,7 @@ async function sendDeliveryEmail(order, userEmail) {
     <p style="margin:4px 0 0;color:#aaa;font-size:11px;"><a href="https://green-valley-farm.online/" style="color:#1a4d2e;text-decoration:none;">green-valley-farm.online</a></p>
   </td></tr>
 </table></td></tr></table></body></html>`;
-  await sendEmail(userEmail, `📦 Order ${order.orderId} Delivered!`, html);
+  return await sendEmail(userEmail, `📦 Order ${order.orderId} Delivered!`, html);
 }
 
 async function sendAbandonedCartEmail(user, cart, coupon) {
@@ -544,7 +544,7 @@ async function sendAbandonedCartEmail(user, cart, coupon) {
   </td></tr>
 </table></td></tr></table></body></html>`;
 
-  await sendEmail(user.email, `Complete your Green Valley cart - ${coupon.value}% off inside`, html);
+  return await sendEmail(user.email, `Complete your Green Valley cart - ${coupon.value}% off inside`, html);
 }
 
 function sanitizeText(value, maxLength = 500) {
@@ -1681,7 +1681,7 @@ const store = {
   async placeOrder(userId, customerInfo) {
     const cart = carts[userId] || [];
     if (!cart.length) return { error: 'Cart is empty' };
-    const { name, phone, address, paymentMethod, upiUtr, upiScreenshot, razorpayOrderId, razorpayPaymentId, timeSlot, deliveryCharge, deliveryCoords, couponCode, couponDiscount } = customerInfo;
+    const { name, phone, address, paymentMethod, upiUtr, upiScreenshot, razorpayOrderId, razorpayPaymentId, timeSlot, deliveryCoords, couponCode, paidAmount } = customerInfo;
     if (!name || !phone || !address) return { error: 'Name, phone, and address are required' };
 
     for (const item of cart) {
@@ -1690,9 +1690,47 @@ const store = {
     }
 
     const subtotal = cart.reduce((s, i) => s + i.subtotal, 0);
-    const appliedDiscount = parseFloat(couponDiscount) || 0;
-    const appliedDeliveryCharge = parseFloat(deliveryCharge) || 0;
+
+    // ── Server-Side Coupon Validation & Calculation ──
+    let appliedDiscount = 0;
+    if (couponCode) {
+      const couponResult = await this.validateCoupon(couponCode, userId);
+      if (!couponResult.error && couponResult.coupon) {
+        const c = couponResult.coupon;
+        if (!c.minOrderAmount || subtotal >= c.minOrderAmount) {
+          appliedDiscount = c.type === 'percentage' 
+            ? Math.round(subtotal * (c.value / 100)) 
+            : c.value;
+          if (appliedDiscount > subtotal) appliedDiscount = subtotal;
+        }
+      }
+    }
+
+    // ── Server-Side Delivery Charge Calculation ──
+    let appliedDeliveryCharge = 0;
+    const deliveryFree = (subtotal - appliedDiscount) >= 400;
+    
+    if (!deliveryFree && deliveryCoords && deliveryCoords.lat && deliveryCoords.lng) {
+      const farmLat = 26.2929519, farmLng = 85.3947712;
+      const R = 6371;
+      const dLat = (deliveryCoords.lat - farmLat) * Math.PI / 180;
+      const dLon = (deliveryCoords.lng - farmLng) * Math.PI / 180;
+      const a = Math.sin(dLat/2)**2 + Math.cos(farmLat*Math.PI/180) * Math.cos(deliveryCoords.lat*Math.PI/180) * Math.sin(dLon/2)**2;
+      const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      
+      if (dist <= 5) appliedDeliveryCharge = 30;
+      else if (dist <= 15) appliedDeliveryCharge = 50;
+      else if (dist <= 30) appliedDeliveryCharge = 80;
+      else appliedDeliveryCharge = 120;
+    }
+
     const finalTotal = subtotal - appliedDiscount + appliedDeliveryCharge;
+
+    if (paidAmount !== undefined) {
+      if (Math.abs(paidAmount - finalTotal) > 1) {
+        return { error: 'Payment amount mismatch. Order rejected for security reasons.' };
+      }
+    }
 
     const order = {
       orderId: `ORD-${Date.now().toString(36).toUpperCase()}-${uuidv4().slice(0, 4).toUpperCase()}`,
@@ -1700,7 +1738,7 @@ const store = {
       items: [...cart],
       totalItems: cart.reduce((s, i) => s + i.quantity, 0),
       subtotal,
-      couponCode: couponCode || null,
+      couponCode: appliedDiscount > 0 ? couponCode : null,
       couponDiscount: appliedDiscount,
       deliveryCharge: appliedDeliveryCharge,
       deliveryCoords: deliveryCoords || null,
