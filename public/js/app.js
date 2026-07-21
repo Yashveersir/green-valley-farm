@@ -39,6 +39,7 @@ const App = {
   async init() {
     this.runPreloader();
     this.initTheme();
+    this.initMobileNav();
     this.bindEvents();
     this.initScrollAnimations();
     this.initPwa();
@@ -59,10 +60,19 @@ const App = {
 
     // Sync with OS preference if user has not manually saved a choice
     window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener?.('change', (e) => {
-      if (!localStorage.getItem('gvf_theme')) {
+      if (!localStorage.getItem('gvf_theme_v2')) {
         this.applyTheme(e.matches ? 'dark' : 'light', true);
       }
     });
+  },
+
+  initMobileNav() {
+    // Mobile browsers trap position:fixed inside backdrop-filter headers
+    // Moving the bottom nav to body fixes it instantly on small screens.
+    const nav = document.getElementById('main-nav');
+    if (nav && window.innerWidth <= 768) {
+      document.body.appendChild(nav);
+    }
   },
 
   toggleTheme() {
