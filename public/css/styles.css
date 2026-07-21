@@ -493,6 +493,9 @@ input, textarea, select { font-family: inherit; }
   background: rgba(255,255,255,0.08);
   border-color: var(--border);
 }
+.theme-nav-toggle {
+  display: none !important;
+}
 
 .header-actions { display: flex; align-items: center; gap: 8px; }
 
@@ -2394,6 +2397,7 @@ input, textarea, select { font-family: inherit; }
   .nav-link[data-page="home"]::before { content: '🏠'; }
   .nav-link[data-page="about"]::before { content: '🌾'; }
   .nav-link[data-page="orders"]::before { content: '📦'; }
+  .nav-link.theme-nav-toggle { display: flex !important; }
   .nav-link.theme-nav-toggle::before { content: '🌙'; }
   [data-theme="light"] .nav-link.theme-nav-toggle::before { content: '☀️'; }
   .nav-link.active {
