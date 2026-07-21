@@ -112,11 +112,10 @@
   }
   </script>
 </head>
-<body>
-  <!-- SCROLL PROGRESS BAR -->
-  <div id="scroll-progress"></div>
-  <!-- PRELOADER ANIMATION -->
-  <div id="gvf-preloader" class="gvf-preloader">
+<body class="loading">
+
+  <!-- PRELOADER -->
+  <div class="preloader" id="preloader">
     <div class="preloader-content">
       <div class="preloader-logo-wrap">
         <img src="/images/logo.png" alt="Green Valley Farm" class="preloader-logo" decoding="async">
@@ -145,6 +144,7 @@
           <a href="#" class="nav-link active" data-page="home" onclick="App.navigate('home')">Shop</a>
           <a href="#" class="nav-link" data-page="about" onclick="App.navigate('about')">Our Farm</a>
           <a href="#" class="nav-link" data-page="orders" onclick="App.navigate('orders')">My Orders</a>
+          <button type="button" class="nav-link theme-nav-toggle" id="theme-nav-toggle" onclick="App.toggleTheme()" aria-label="Toggle Theme">Theme</button>
         </nav>
         <div class="header-actions">
           <div class="search-wrapper" id="search-wrapper">

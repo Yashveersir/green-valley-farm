@@ -2309,11 +2309,36 @@ input, textarea, select { font-family: inherit; }
   }
   .header-inner {
     height: 50px;
-    padding: 0 12px;
+    padding: 0 8px;
+    gap: 4px;
   }
-  .logo-name { font-size: 13px; }
-  .logo-sub { font-size: 9px; }
-  .logo img { height: 30px; width: 30px; }
+  .logo-name { font-size: 13.5px; font-weight: 700; white-space: nowrap; }
+  .logo-sub { display: none; }
+  .logo img { height: 30px; width: 30px; flex-shrink: 0; }
+
+  .header-actions {
+    gap: 4px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+  }
+  .header-actions .icon-btn,
+  .header-actions .theme-toggle,
+  .header-actions .cart-btn {
+    width: 32px !important;
+    height: 32px !important;
+    flex-shrink: 0 !important;
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+
+  .search-wrapper.open .search-input {
+    width: 110px;
+    padding: 5px 8px;
+    margin-right: 4px;
+    font-size: 12px;
+  }
 
   /* ── Bottom Navigation Bar (iOS-style) ── */
   .nav {
@@ -2322,11 +2347,11 @@ input, textarea, select { font-family: inherit; }
     left: 0;
     right: 0;
     top: auto;
-    background: rgba(10, 10, 10, 0.92);
+    background: rgba(10, 10, 10, 0.94);
     backdrop-filter: blur(24px) saturate(1.8);
     -webkit-backdrop-filter: blur(24px) saturate(1.8);
     border-top: 1px solid var(--border);
-    padding: 6px 8px;
+    padding: 6px 4px;
     padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
     display: flex;
     justify-content: space-around;
@@ -2335,6 +2360,12 @@ input, textarea, select { font-family: inherit; }
     gap: 0;
     height: calc(56px + env(safe-area-inset-bottom, 0px));
   }
+  [data-theme="light"] .nav {
+    background: rgba(255, 255, 255, 0.94);
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.05);
+  }
+
   .nav-link {
     flex: 1;
     display: flex;
@@ -2342,7 +2373,7 @@ input, textarea, select { font-family: inherit; }
     align-items: center;
     justify-content: center;
     gap: 3px;
-    padding: 6px 4px;
+    padding: 6px 2px;
     font-size: 10px;
     font-weight: 500;
     border-radius: var(--radius-sm);
@@ -2350,6 +2381,8 @@ input, textarea, select { font-family: inherit; }
     border: none;
     transition: color 0.2s ease;
     min-height: 44px;
+    background: transparent;
+    cursor: pointer;
   }
   .nav-link::before {
     content: '';
@@ -2361,6 +2394,8 @@ input, textarea, select { font-family: inherit; }
   .nav-link[data-page="home"]::before { content: '🏠'; }
   .nav-link[data-page="about"]::before { content: '🌾'; }
   .nav-link[data-page="orders"]::before { content: '📦'; }
+  .nav-link.theme-nav-toggle::before { content: '🌙'; }
+  [data-theme="light"] .nav-link.theme-nav-toggle::before { content: '☀️'; }
   .nav-link.active {
     color: var(--accent);
     background: none;
