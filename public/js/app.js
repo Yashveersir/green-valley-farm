@@ -680,7 +680,9 @@ const App = {
       const data = await API.searchProducts(query); 
       if (this.currentPage !== 'home') this.navigate('home');
       this.renderProducts(data.products); 
-    } catch {}
+    } catch (err) {
+      console.error('Search failed:', err);
+    }
   },
 
   filterCategory(cat) {
