@@ -620,9 +620,13 @@ const App = {
     const searchWrapper = document.getElementById('search-wrapper');
     const searchInput = document.getElementById('search-input');
     searchToggle.addEventListener('click', () => {
-      searchWrapper.classList.toggle('open');
-      if (searchWrapper.classList.contains('open')) searchInput.focus();
-      else { searchInput.value = ''; this.loadProducts(); }
+      if (searchWrapper.classList.contains('open') && searchInput.value.trim().length > 0) {
+        this.searchProducts(searchInput.value.trim());
+      } else {
+        searchWrapper.classList.toggle('open');
+        if (searchWrapper.classList.contains('open')) searchInput.focus();
+        else { searchInput.value = ''; this.loadProducts(); }
+      }
     });
     searchInput.addEventListener('input', (e) => {
       clearTimeout(this.searchTimeout);
@@ -630,6 +634,13 @@ const App = {
         if (e.target.value.trim()) this.searchProducts(e.target.value.trim());
         else this.loadProducts();
       }, 300);
+    });
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        searchInput.blur();
+        if (searchInput.value.trim()) this.searchProducts(searchInput.value.trim());
+      }
     });
     // Close modals on overlay click
     document.querySelectorAll('.modal-overlay').forEach(m => {
@@ -665,7 +676,11 @@ const App = {
   },
 
   async searchProducts(query) {
-    try { const data = await API.searchProducts(query); this.renderProducts(data.products); } catch {}
+    try { 
+      const data = await API.searchProducts(query); 
+      if (this.currentPage !== 'home') this.navigate('home');
+      this.renderProducts(data.products); 
+    } catch {}
   },
 
   filterCategory(cat) {
