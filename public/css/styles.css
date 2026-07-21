@@ -170,30 +170,74 @@
   }
 }
 
-/* ── Light theme hero overlay ── */
-[data-theme="light"] .hero-overlay {
+/* ── Hero & About Banner Photo Overlays (Always High-Contrast & Crisp White Text) ── */
+.hero-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
   background: linear-gradient(
     135deg,
-    rgba(248,250,252,0.90) 0%,
-    rgba(248,250,252,0.60) 50%,
-    rgba(248,250,252,0.35) 100%
-  );
+    rgba(0, 0, 0, 0.88) 0%,
+    rgba(0, 0, 0, 0.65) 50%,
+    rgba(0, 0, 0, 0.45) 100%
+  ) !important;
 }
-[data-theme="light"] .hero-title { color: #0f172a; }
-[data-theme="light"] .hero-desc { color: #334155; }
-[data-theme="light"] .hero-badge {
-  background: rgba(22,163,74,0.12);
-  border-color: rgba(22,163,74,0.3);
+.hero-title {
+  color: #ffffff !important;
 }
-[data-theme="light"] .trust-strip { border-top-color: rgba(0,0,0,0.08); }
-[data-theme="light"] .trust-item { color: #475569; }
-[data-theme="light"] .stat-num { color: #0f172a; }
-[data-theme="light"] .stat-label { color: #64748b; }
-[data-theme="light"] .farm-leadership-badge {
-  background: rgba(255,255,255,0.85);
-  border-color: rgba(0,0,0,0.1);
-  color: #0f172a;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+.hero-title .line-accent {
+  background: linear-gradient(135deg, #22c55e 0%, #86efac 50%, #22c55e 100%) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+}
+.hero-desc {
+  color: rgba(255, 255, 255, 0.90) !important;
+}
+.hero-stats .stat-num {
+  color: #ffffff !important;
+}
+.hero-stats .stat-label {
+  color: rgba(255, 255, 255, 0.70) !important;
+}
+.trust-strip {
+  border-top: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+.trust-item {
+  color: rgba(255, 255, 255, 0.88) !important;
+}
+.farm-leadership-badge {
+  background: rgba(14, 14, 14, 0.82) !important;
+  backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  color: #ffffff !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* About Farm Hero Text visibility */
+.about-hero .about-overlay {
+  background: rgba(0, 0, 0, 0.70) !important;
+}
+.about-hero-text h2 {
+  color: #ffffff !important;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5) !important;
+}
+.about-hero-text p {
+  color: rgba(255, 255, 255, 0.90) !important;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Hero outline buttons ("Our Story", "Install App") over dark overlay */
+.hero-cta-group .btn-outline {
+  background: rgba(255, 255, 255, 0.12) !important;
+  border: 1px solid rgba(255, 255, 255, 0.28) !important;
+  color: #ffffff !important;
+  backdrop-filter: blur(8px) !important;
+}
+.hero-cta-group .btn-outline:hover {
+  background: rgba(255, 255, 255, 0.22) !important;
+  border-color: rgba(255, 255, 255, 0.45) !important;
+  color: #ffffff !important;
 }
 
 /* ── Light theme preloader ── */
@@ -241,27 +285,27 @@
   pointer-events: none;
 }
 
-/* In Dark Mode (default): Sun icon is visible (click to turn on light) */
-.theme-toggle .icon-sun {
+/* In Light Mode (default): Moon icon is visible (click to switch to dark) */
+.theme-toggle .icon-moon {
   opacity: 1;
   transform: rotate(0deg) scale(1);
-  color: #f59e0b;
+  color: #4f46e5;
 }
-.theme-toggle .icon-moon {
+.theme-toggle .icon-sun {
   opacity: 0;
   transform: rotate(-90deg) scale(0.4);
-  color: var(--text-muted);
+  color: #f59e0b;
 }
 
-/* In Light Mode: Moon icon is visible (click to turn on dark) */
-[data-theme="light"] .theme-toggle .icon-sun {
+/* In Dark Mode: Sun icon is visible (click to switch to light) */
+[data-theme="dark"] .theme-toggle .icon-moon {
   opacity: 0;
   transform: rotate(90deg) scale(0.4);
 }
-[data-theme="light"] .theme-toggle .icon-moon {
+[data-theme="dark"] .theme-toggle .icon-sun {
   opacity: 1;
   transform: rotate(0deg) scale(1);
-  color: #6366f1;
+  color: #f59e0b;
 }
 
 /* Label text */

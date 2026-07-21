@@ -53,13 +53,11 @@ const App = {
   // ── Theme (Light / Dark) ──
   initTheme() {
     const saved = localStorage.getItem('gvf_theme');
-    // Default is DARK — only switch to light if explicitly saved as 'light'
-    // or if OS prefers light AND user has never manually overridden
-    const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? true;
-    const theme = saved ? saved : (prefersDark ? 'dark' : 'dark'); // Default dark always
+    // Default is LIGHT (white) mode unless user explicitly selected 'dark'
+    const theme = saved ? saved : 'light';
     this.applyTheme(theme, false);
 
-    // Sync with OS pref changes (only when no manual save)
+    // Sync with OS preference if user has not manually saved a choice
     window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener?.('change', (e) => {
       if (!localStorage.getItem('gvf_theme')) {
         this.applyTheme(e.matches ? 'dark' : 'light', true);
@@ -68,8 +66,8 @@ const App = {
   },
 
   toggleTheme() {
-    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
-    const next = isLight ? 'dark' : 'light';
+    const current = document.documentElement.getAttribute('data-theme') || 'light';
+    const next = current === 'light' ? 'dark' : 'light';
     localStorage.setItem('gvf_theme', next);
     this.applyTheme(next, true);
   },
@@ -78,20 +76,18 @@ const App = {
     const html = document.documentElement;
 
     if (animate) {
-      // Add transitioning class to enable smooth color transitions
       html.classList.add('theme-transitioning');
     }
 
-    if (theme === 'light') {
+    if (theme === 'dark') {
+      html.setAttribute('data-theme', 'dark');
+      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#070707');
+    } else {
       html.setAttribute('data-theme', 'light');
       document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#f8fafc');
-    } else {
-      html.removeAttribute('data-theme');
-      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#070707');
     }
 
     if (animate) {
-      // Remove class after transition completes
       setTimeout(() => html.classList.remove('theme-transitioning'), 400);
     }
   },
