@@ -1,8 +1,9 @@
 /* ═══════════════════════════════════════════════
    GREEN VALLEY POULTRY FARM — World-Class Design System
-   Premium Dark Mode · Glassmorphism · Spring Physics
+   Dark Mode (default) · Light Mode · Glassmorphism
    ═══════════════════════════════════════════════ */
 
+/* ── DARK THEME (default) ── */
 :root {
   /* === BACKGROUND LAYERS === */
   --bg: #070707;
@@ -85,6 +86,178 @@
   --space-12: 48px;
   --space-16: 64px;
   --space-20: 80px;
+}
+
+/* ── LIGHT THEME ── */
+[data-theme="light"] {
+  /* === BACKGROUNDS === */
+  --bg: #f8fafc;
+  --bg-card: #ffffff;
+  --bg-surface: #f1f5f9;
+  --bg-elevated: #e2e8f0;
+  --bg-input: rgba(0,0,0,0.04);
+
+  /* === BRAND COLORS (same accent, adjusted dims) === */
+  --accent: #16a34a;
+  --accent-dim: rgba(22, 163, 74, 0.1);
+  --accent-glow: rgba(22, 163, 74, 0.2);
+  --accent-hover: #15803d;
+
+  /* === TEXT === */
+  --text: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --text-disabled: #cbd5e1;
+
+  /* === BORDERS === */
+  --border: rgba(0,0,0,0.1);
+  --border-subtle: rgba(0,0,0,0.05);
+  --border-focus: rgba(22, 163, 74, 0.5);
+  --border-strong: rgba(0,0,0,0.18);
+
+  /* === GLASSMORPHISM (light) === */
+  --glass-bg: rgba(255, 255, 255, 0.75);
+  --glass-border: rgba(0,0,0,0.08);
+
+  /* === SHADOWS (lighter) === */
+  --shadow-xs: 0 1px 2px rgba(0,0,0,0.05);
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.08);
+  --shadow: 0 4px 16px rgba(0,0,0,0.1);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
+  --shadow-xl: 0 20px 60px rgba(0,0,0,0.15);
+  --shadow-accent: 0 4px 24px rgba(22,163,74,0.25);
+  --shadow-glow: 0 0 40px rgba(22,163,74,0.12);
+}
+
+/* ── Smooth theme transition ── */
+*, *::before, *::after {
+  transition:
+    background-color 0.3s var(--ease),
+    border-color 0.3s var(--ease),
+    color 0.3s var(--ease),
+    box-shadow 0.3s var(--ease);
+}
+/* Don't animate layout-affecting props globally */
+.btn, .product-card, .add-to-cart-btn, .cat-btn,
+.nav-link, .cart-item, .order-card, .about-card,
+.farm-photo-item, .user-avatar, .icon-btn, .cart-btn {
+  transition:
+    background-color 0.3s var(--ease),
+    border-color 0.3s var(--ease),
+    color 0.3s var(--ease),
+    box-shadow 0.3s var(--ease),
+    transform 0.22s var(--ease),
+    opacity 0.22s var(--ease);
+}
+
+/* ── Light theme body decorations ── */
+[data-theme="light"] body::before {
+  background:
+    linear-gradient(rgba(0,0,0,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,0,0,0.04) 1px, transparent 1px);
+}
+[data-theme="light"] body::after {
+  background: radial-gradient(circle, rgba(22,163,74,0.06) 0%, transparent 70%);
+}
+
+/* ── Light theme header glass ── */
+[data-theme="light"] .header-inner-wrap {
+  background: rgba(255,255,255,0.8);
+  border-color: rgba(0,0,0,0.08);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+}
+[data-theme="light"] .header.scrolled .header-inner-wrap {
+  background: rgba(255,255,255,0.95);
+  box-shadow: 0 4px 32px rgba(0,0,0,0.12);
+}
+
+/* ── Light theme nav (bottom on mobile) ── */
+@media (max-width: 768px) {
+  [data-theme="light"] .nav {
+    background: rgba(255,255,255,0.92);
+    border-top-color: rgba(0,0,0,0.08);
+  }
+}
+
+/* ── Light theme hero overlay ── */
+[data-theme="light"] .hero-overlay {
+  background: linear-gradient(
+    135deg,
+    rgba(248,250,252,0.90) 0%,
+    rgba(248,250,252,0.60) 50%,
+    rgba(248,250,252,0.35) 100%
+  );
+}
+[data-theme="light"] .hero-title { color: #0f172a; }
+[data-theme="light"] .hero-desc { color: #334155; }
+[data-theme="light"] .hero-badge {
+  background: rgba(22,163,74,0.12);
+  border-color: rgba(22,163,74,0.3);
+}
+[data-theme="light"] .trust-strip { border-top-color: rgba(0,0,0,0.08); }
+[data-theme="light"] .trust-item { color: #475569; }
+[data-theme="light"] .stat-num { color: #0f172a; }
+[data-theme="light"] .stat-label { color: #64748b; }
+[data-theme="light"] .farm-leadership-badge {
+  background: rgba(255,255,255,0.85);
+  border-color: rgba(0,0,0,0.1);
+  color: #0f172a;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+}
+
+/* ── Light theme preloader ── */
+[data-theme="light"] .gvf-preloader {
+  background: #f8fafc;
+}
+
+/* ── THEME TOGGLE BUTTON ── */
+.theme-toggle {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.theme-toggle:hover {
+  background: rgba(255,255,255,0.06);
+  border-color: var(--border);
+  color: var(--text);
+}
+[data-theme="light"] .theme-toggle:hover {
+  background: rgba(0,0,0,0.05);
+}
+.theme-toggle-icon {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.4s var(--spring);
+}
+/* Moon icon — shown in dark mode */
+.theme-toggle .icon-moon {
+  opacity: 1;
+  transform: rotate(0deg) scale(1);
+}
+.theme-toggle .icon-sun {
+  opacity: 0;
+  transform: rotate(90deg) scale(0.5);
+}
+/* Sun icon — shown in light mode */
+[data-theme="light"] .theme-toggle .icon-moon {
+  opacity: 0;
+  transform: rotate(-90deg) scale(0.5);
+}
+[data-theme="light"] .theme-toggle .icon-sun {
+  opacity: 1;
+  transform: rotate(0deg) scale(1);
 }
 
 /* ═══ RESET & BASE ═══ */
