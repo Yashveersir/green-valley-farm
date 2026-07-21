@@ -678,8 +678,17 @@ const App = {
   async searchProducts(query) {
     try { 
       const data = await API.searchProducts(query); 
-      if (this.currentPage !== 'home') this.navigate('home');
+      if (this.currentPage !== 'home') {
+        this.navigate('home');
+      }
       this.renderProducts(data.products); 
+      setTimeout(() => {
+        const grid = document.getElementById('products-grid');
+        if (grid) {
+          const y = grid.getBoundingClientRect().top + window.scrollY - 100;
+          window.scrollTo({ top: y, behavior: 'smooth' });
+        }
+      }, 50);
     } catch (err) {
       console.error('Search failed:', err);
     }
