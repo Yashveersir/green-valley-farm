@@ -49,6 +49,7 @@ const App = {
     await this.openProductFromLocation();
     await this.initGoogleAuth();
     this.updateCartBadge();
+    this.initChatbot();
   },
 
   // ── Theme (Light / Dark) ──
@@ -1550,13 +1551,39 @@ const App = {
   chatHistory: [],
   isChatbotOpen: false,
 
+  initChatbot() {
+    // Load history from session storage
+    const saved = sessionStorage.getItem('chatbotHistory');
+    if (saved) {
+      try {
+        this.chatHistory = JSON.parse(saved);
+        const msgs = document.getElementById('chatbot-messages');
+        msgs.innerHTML = '';
+        this.chatHistory.forEach(m => {
+          if (m.role !== 'system') {
+            const sender = m.role === 'user' ? 'user' : 'bot';
+            this.appendChatMessage(m.content, sender, false);
+          }
+        });
+      } catch(e){}
+    }
+    // Tooltip attention grabber
+    setTimeout(() => {
+      if (!this.isChatbotOpen) {
+        document.getElementById('chatbot-tooltip')?.classList.add('show');
+      }
+    }, 5000);
+  },
+
   toggleChatbot() {
     this.isChatbotOpen = !this.isChatbotOpen;
     const win = document.getElementById('chatbot-window');
     const toggle = document.getElementById('chatbot-toggle');
+    const tooltip = document.getElementById('chatbot-tooltip');
     if (this.isChatbotOpen) {
       win.classList.add('open');
       toggle.style.transform = 'scale(0)';
+      if (tooltip) tooltip.classList.remove('show');
       setTimeout(() => document.getElementById('chatbot-input').focus(), 300);
     } else {
       win.classList.remove('open');
@@ -1602,6 +1629,7 @@ const App = {
       if (this.chatHistory.length > 20) {
         this.chatHistory = this.chatHistory.slice(this.chatHistory.length - 20);
       }
+      sessionStorage.setItem('chatbotHistory', JSON.stringify(this.chatHistory));
     } catch (err) {
       document.getElementById('chat-typing')?.remove();
       this.appendChatMessage('Sorry, I am having trouble connecting to the server right now. Please try again later.', 'bot');
@@ -1611,12 +1639,15 @@ const App = {
     }
   },
 
-  appendChatMessage(text, sender) {
+  appendChatMessage(text, sender, save = false) {
     const msgs = document.getElementById('chatbot-messages');
     const div = document.createElement('div');
     div.className = `chat-bubble ${sender}`;
-    // very basic markdown-to-html for line breaks and bold
-    div.innerHTML = text.replace(/\\n/g, '<br>').replace(/\\*\\*(.*?)\\*\\*/g, '<strong>$1</strong>');
+    if (sender === 'bot' && window.marked) {
+      div.innerHTML = marked.parse(text);
+    } else {
+      div.innerHTML = this.escapeHtml(text).replace(/\\n/g, '<br>');
+    }
     msgs.appendChild(div);
     msgs.scrollTop = msgs.scrollHeight;
   },

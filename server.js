@@ -357,7 +357,31 @@ Description: At Green Valley Poultry Farm, we raise our birds the traditional wa
     const allProducts = store.getAllProducts();
     const productContext = allProducts.map(p => `- ${p.name} (₹${p.price}) [${p.stock > 0 ? 'In Stock' : 'Out of Stock'}]: ${p.description}`).join('\n');
     
-    const enrichedSystemPrompt = `${systemPrompt}\n\n[CONTEXTUAL DATA]\nUse the following real-time data to answer the user's questions accurately. DO NOT hallucinate prices or products. If a product is not in this list, say it is not available.\n\nFarm Information:\n${farmContext}\n\nAvailable Products:\n${productContext}`;
+    let userContext = "User is not logged in.";
+    if (req.user) {
+      const u = req.user;
+      const cart = store.getCart(u.id || u._id);
+      let orders = [];
+      try {
+        orders = await store.getOrders(u.id || u._id) || [];
+      } catch (e) {} // Fallback in case of error
+      
+      const recentOrder = orders.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
+      
+      userContext = `User Name: ${u.name || 'Unknown'}\nEmail: ${u.email || 'Unknown'}`;
+      if (cart && cart.items && cart.items.length > 0) {
+        userContext += `\nCurrent Cart: ${cart.items.map(i => i.quantity + 'x ' + i.name).join(', ')} (Total: ₹${cart.totalPrice})`;
+      } else {
+        userContext += `\nCurrent Cart: Empty`;
+      }
+      if (recentOrder) {
+        userContext += `\nLatest Order: ID ${recentOrder.orderId || recentOrder.id} placed on ${new Date(recentOrder.createdAt).toLocaleDateString()}, Status: ${recentOrder.status}, Total: ₹${recentOrder.total}`;
+      } else {
+        userContext += `\nLatest Order: None`;
+      }
+    }
+
+    const enrichedSystemPrompt = `${systemPrompt}\n\n[CONTEXTUAL DATA]\nUse the following real-time data to answer the user's questions accurately. DO NOT hallucinate prices or products. If a product is not in this list, say it is not available.\n\nFarm Information:\n${farmContext}\n\nAvailable Products:\n${productContext}\n\nCurrent User Context:\n${userContext}`;
 
     const geminiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
     const groqKey = process.env.GROQ_API_KEY;
