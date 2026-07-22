@@ -578,7 +578,11 @@
     <div class="chatbot-window" id="chatbot-window">
       <div class="chatbot-header">
         <div class="chatbot-header-title">
-          <div class="chatbot-header-icon">🤖</div>
+          <div class="chatbot-header-icon" style="background:transparent; padding:0; display:flex; align-items:center; justify-content:center;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"></path>
+            </svg>
+          </div>
           Green Valley Support
         </div>
         <button class="chatbot-close" onclick="App.toggleChatbot()">×</button>
@@ -599,7 +603,11 @@
       </div>
     </div>
     <button class="chatbot-toggle" id="chatbot-toggle" onclick="App.toggleChatbot()" title="Chat with Support">
-      <span style="font-size:32px;">🤖</span>
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+        <path d="M12 8v8"></path>
+        <path d="M8 12h8"></path>
+      </svg>
     </button>
   </div>
   <script src="/js/api.js?v=20260722-v8"></script>
