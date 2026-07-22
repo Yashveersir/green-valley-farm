@@ -2968,6 +2968,9 @@ input, textarea, select { font-family: inherit; }
     width: calc(100vw - 32px);
     height: 400px;
   }
+  .chatbot-widget {
+    bottom: 90px;
+  }
 }
 .chatbot-tooltip {
   position: absolute;
