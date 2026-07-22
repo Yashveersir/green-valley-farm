@@ -1546,6 +1546,75 @@ const App = {
     } catch {}
   },
 
+  // ── Chatbot ──
+  chatHistory: [],
+  isChatbotOpen: false,
+
+  toggleChatbot() {
+    this.isChatbotOpen = !this.isChatbotOpen;
+    const win = document.getElementById('chatbot-window');
+    const toggle = document.getElementById('chatbot-toggle');
+    if (this.isChatbotOpen) {
+      win.classList.add('open');
+      toggle.style.transform = 'scale(0)';
+      setTimeout(() => document.getElementById('chatbot-input').focus(), 300);
+    } else {
+      win.classList.remove('open');
+      toggle.style.transform = 'scale(1)';
+    }
+  },
+
+  async sendChatMessage() {
+    const input = document.getElementById('chatbot-input');
+    const msg = input.value.trim();
+    if (!msg) return;
+
+    this.appendChatMessage(msg, 'user');
+    input.value = '';
+    
+    // Add typing indicator
+    const msgsContainer = document.getElementById('chatbot-messages');
+    const typingDiv = document.createElement('div');
+    typingDiv.className = 'typing-indicator';
+    typingDiv.id = 'chat-typing';
+    typingDiv.innerHTML = '<div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>';
+    msgsContainer.appendChild(typingDiv);
+    msgsContainer.scrollTop = msgsContainer.scrollHeight;
+
+    const btn = document.getElementById('chatbot-send');
+    btn.disabled = true;
+
+    try {
+      const data = await API.sendChatMessage(msg, this.chatHistory);
+      document.getElementById('chat-typing')?.remove();
+      this.appendChatMessage(data.reply, 'bot');
+      
+      this.chatHistory.push({ role: 'user', content: msg });
+      this.chatHistory.push({ role: 'assistant', content: data.reply });
+      
+      // Keep only last 10 messages to avoid token bloat
+      if (this.chatHistory.length > 20) {
+        this.chatHistory = this.chatHistory.slice(this.chatHistory.length - 20);
+      }
+    } catch (err) {
+      document.getElementById('chat-typing')?.remove();
+      this.appendChatMessage('Sorry, I am having trouble connecting to the server right now. Please try again later.', 'bot');
+    } finally {
+      btn.disabled = false;
+      input.focus();
+    }
+  },
+
+  appendChatMessage(text, sender) {
+    const msgs = document.getElementById('chatbot-messages');
+    const div = document.createElement('div');
+    div.className = `chat-bubble ${sender}`;
+    // very basic markdown-to-html for line breaks and bold
+    div.innerHTML = text.replace(/\\n/g, '<br>').replace(/\\*\\*(.*?)\\*\\*/g, '<strong>$1</strong>');
+    msgs.appendChild(div);
+    msgs.scrollTop = msgs.scrollHeight;
+  },
+
   // ── Toast ──
   toast(message, type = 'success') {
     const container = document.getElementById('toast-container');
