@@ -1394,7 +1394,6 @@ const App = {
         <h3 style="margin-top:60px; margin-bottom:20px; font-family:'Playfair Display', serif; font-size:24px;">Farm <span class="text-accent">Details</span></h3>
         <div class="about-grid">
           <div class="about-card"><div class="about-card-icon">📍</div><h4>Location</h4><p><a href="https://www.google.com/maps/place/Green+Valley+Poultry+Farm/@26.2929519,85.3947712,17z/data=!4m14!1m7!3m6!1s0x39ed1dd0ddeaf6e5:0xeb79e79b089a853f!2sGreen+Valley+Poultry+Farm!8m2!3d26.2929519!4d85.3947712!16s%2Fg%2F11sbq_4t46!3m5!1s0x39ed1dd0ddeaf6e5:0xeb79e79b089a853f!8m2!3d26.2929519!4d85.3947712!16s%2Fg%2F11sbq_4t46?entry=ttu&g_ep=EgoyMDI2MDQwMS4wIKXMDSoASAFQAw%3D%3D" target="_blank" style="color:inherit;text-decoration:none;">${f.location}</a></p></div>
-          <div class="about-card"><div class="about-card-icon">📞</div><h4>Phone</h4><p><a href="tel:${f.phone.replace(/[^0-9+]/g, '')}" style="color:inherit;text-decoration:none;">${f.phone}</a></p></div>
           <div class="about-card"><div class="about-card-icon">📧</div><h4>Email</h4><p><a href="mailto:${f.email}" style="color:inherit;text-decoration:none;">${f.email}</a></p></div>
           <div class="about-card"><div class="about-card-icon">🕐</div><h4>Hours</h4><p>${f.hours}</p></div>
           <div class="about-card"><div class="about-card-icon">📅</div><h4>Established</h4><p>Since ${f.established}</p></div>
