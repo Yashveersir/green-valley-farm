@@ -347,6 +347,7 @@ Never answer unrelated questions under any circumstances.`;
     const farmContext = `Farm Name: Green Valley Poultry Farm
 Tagline: Farm-Fresh Poultry, Delivered with Care
 Established: 2018
+Farm Leadership: Owned by ANJIV SINGH, Managed by Yashveer Singh
 Location: Tengrahan, Minapur, Muzaffarpur, Bihar - 843117
 Email: sales.greenvalleyfarm@gmail.com
 Hours: Mon-Sat: 6:00 AM - 8:00 PM, Sun: 7:00 AM - 2:00 PM
