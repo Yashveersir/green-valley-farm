@@ -1646,7 +1646,7 @@ const App = {
     if (sender === 'bot' && window.marked) {
       div.innerHTML = marked.parse(text);
     } else {
-      div.innerHTML = this.escapeHtml(text).replace(/\\n/g, '<br>');
+      div.innerHTML = this.escapeHTML(text).replace(/\\n/g, '<br>');
     }
     msgs.appendChild(div);
     msgs.scrollTop = msgs.scrollHeight;
