@@ -227,7 +227,6 @@ let users = [
     id: 'admin-001',
     name: 'Farm Admin',
     email: 'sales.greenvalleyfarm@gmail.com',
-    phone: '+91 9471800046',
     role: 'admin',
     createdAt: new Date().toISOString()
   },
@@ -235,7 +234,6 @@ let users = [
     id: 'admin-002',
     name: 'Anjiv Singh',
     email: 'anjivsir@gmail.com',
-    phone: '+91 9471800046',
     role: 'admin',
     createdAt: new Date().toISOString()
   }
@@ -461,7 +459,7 @@ async function sendWelcomeEmail(user) {
       <a href="https://green-valley-farm.online/" style="display:inline-block;background:linear-gradient(135deg,#1a4d2e,#2d7a4a);color:#fff;padding:14px 40px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;box-shadow:0 4px 16px rgba(26,77,46,0.3);">🛒 Start Shopping</a>
     </div>
     <div style="text-align:center;margin-top:16px;">
-      <a href="https://wa.me/919471800046?text=Hi!%20I%20just%20signed%20up%20on%20Green%20Valley%20Farm!" style="color:#25D366;text-decoration:none;font-size:13px;font-weight:600;">💬 Chat with us on WhatsApp</a>
+      <a href="mailto:sales.greenvalleyfarm@gmail.com?subject=Hi!%20I%20just%20signed%20up%20on%20Green%20Valley%20Farm!" style="color:#25D366;text-decoration:none;font-size:13px;font-weight:600;">📧 Email Us</a>
     </div>
   </td></tr>
   <tr><td style="padding:20px 40px;background:#f8faf8;text-align:center;border-top:1px solid #e8f0e8;">
@@ -494,7 +492,7 @@ async function sendDeliveryEmail(order, userEmail) {
     <p style="margin:16px 0;color:#555;font-size:15px;line-height:1.7;">We hope you enjoy your fresh products! Your satisfaction means the world to us. 🙏</p>
     <div style="text-align:center;margin-top:24px;">
       <a href="https://green-valley-farm.online/" style="display:inline-block;background:linear-gradient(135deg,#1a4d2e,#2d7a4a);color:#fff;padding:12px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;margin-right:8px;">🛒 Order Again</a>
-      <a href="https://wa.me/919471800046?text=Hi!%20I%20received%20my%20order%20${order.orderId}" style="display:inline-block;background:#25D366;color:#fff;padding:12px 24px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;">💬 Need Help?</a>
+      <a href="mailto:sales.greenvalleyfarm@gmail.com?subject=Hi!%20I%20received%20my%20order%20${order.orderId}" style="display:inline-block;background:#25D366;color:#fff;padding:12px 24px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;">📧 Need Help?</a>
     </div>
   </td></tr>
   <tr><td style="padding:20px 40px;background:#f8faf8;text-align:center;border-top:1px solid #e8f0e8;">
@@ -1835,7 +1833,7 @@ const store = {
               <td style="vertical-align: top;">
                 <h1 style="margin: 0 0 8px 0; color: #1a4d2e; font-size: 28px;">🌿 Green Valley Farm</h1>
                 <p style="margin:0;color:#666;">Tengrahan, Minapur<br>Muzaffarpur, Bihar - 843117</p>
-                <p style="margin:4px 0 0;color:#666;">Phone: +91 9471800046</p>
+
               </td>
               <td style="vertical-align: top; text-align: right;">
                 <h2 style="margin: 0 0 8px 0; color: #555; font-size: 32px; letter-spacing: 2px;">INVOICE</h2>
@@ -2032,7 +2030,7 @@ const store = {
     </div>
     <div style="text-align:center;margin-top:28px">
       <a href="https://green-valley-farm.online/" style="display:inline-block;background:linear-gradient(135deg,#1a4d2e,#2d7a4a);color:#fff;padding:12px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;margin-right:8px">🛒 Shop Again</a>
-      <a href="https://wa.me/919471800046?text=Hi!%20I%20need%20help%20with%20order%20${order.orderId}" style="display:inline-block;background:#25D366;color:#fff;padding:12px 24px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px">💬 Get Help</a>
+      <a href="mailto:sales.greenvalleyfarm@gmail.com?subject=Hi!%20I%20need%20help%20with%20order%20${order.orderId}" style="display:inline-block;background:#25D366;color:#fff;padding:12px 24px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px">📧 Get Help</a>
     </div>
   </td></tr>
   <tr><td style="padding:20px 40px;background:#f8faf8;text-align:center;border-top:1px solid #e8f0e8">

@@ -98,7 +98,7 @@ router.get('/:orderId/invoice', async (req, res) => {
           <div>
             <h1>🌿 Green Valley Farm</h1>
             <p style="margin:0;color:#666;">Tengrahan, Minapur<br>Muzaffarpur, Bihar - 843117</p>
-            <p style="margin:4px 0 0;color:#666;">Phone: +91 9471800046</p>
+
           </div>
           <div style="text-align: right;">
             <h2 style="margin: 0 0 8px 0; color: #555; font-size: 32px; letter-spacing: 2px;">INVOICE</h2>
