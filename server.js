@@ -353,8 +353,43 @@ Never answer unrelated questions under any circumstances.`;
     let reply = '';
     let success = false;
 
-    // Try Gemini First
-    if (geminiKey) {
+    // Try Groq First (Faster)
+    if (groqKey) {
+      try {
+        const messages = [
+          { role: 'system', content: systemPrompt },
+          ...history.map(m => ({ role: m.role, content: m.content })),
+          { role: 'user', content: message }
+        ];
+        
+        const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${groqKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: 'llama-3.1-8b-instant',
+            messages: messages,
+            temperature: 0.2,
+            max_tokens: 512,
+          })
+        });
+
+        if (groqRes.ok) {
+          const groqData = await groqRes.json();
+          reply = groqData.choices?.[0]?.message?.content || '';
+          if (reply) success = true;
+        } else {
+          console.error('Groq API Error:', await groqRes.text());
+        }
+      } catch (err) {
+        console.error('Groq fetch failed:', err.message);
+      }
+    }
+
+    // Fallback to Gemini
+    if (!success && geminiKey) {
       try {
         const geminiHistory = history.map(m => ({
           role: m.role === 'assistant' ? 'model' : 'user',
@@ -381,41 +416,6 @@ Never answer unrelated questions under any circumstances.`;
         }
       } catch (err) {
         console.error('Gemini fetch failed:', err.message);
-      }
-    }
-
-    // Fallback to Groq
-    if (!success && groqKey) {
-      try {
-        const messages = [
-          { role: 'system', content: systemPrompt },
-          ...history.map(m => ({ role: m.role, content: m.content })),
-          { role: 'user', content: message }
-        ];
-        
-        const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${groqKey}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            model: 'llama3-8b-8192',
-            messages: messages,
-            temperature: 0.2,
-            max_tokens: 512,
-          })
-        });
-
-        if (groqRes.ok) {
-          const groqData = await groqRes.json();
-          reply = groqData.choices?.[0]?.message?.content || '';
-          if (reply) success = true;
-        } else {
-          console.error('Groq API Error:', await groqRes.text());
-        }
-      } catch (err) {
-        console.error('Groq fetch failed:', err.message);
       }
     }
 
