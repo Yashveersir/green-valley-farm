@@ -278,6 +278,13 @@ const API = {
 
   // Farm
   async getFarmInfo() { return this.request('/farm'); },
+
+  async sendChatMessage(message, history) {
+    return this.request('/chat', {
+      method: 'POST',
+      body: JSON.stringify({ message, history })
+    });
+  }
 };
 
 window.API = API;

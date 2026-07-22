@@ -578,13 +578,18 @@
     <div class="chatbot-window" id="chatbot-window">
       <div class="chatbot-header">
         <div class="chatbot-header-title">
-          <div class="chatbot-header-icon">🌿</div>
+          <div class="chatbot-header-icon">🤖</div>
           Green Valley Support
         </div>
         <button class="chatbot-close" onclick="App.toggleChatbot()">×</button>
       </div>
       <div class="chatbot-messages" id="chatbot-messages">
         <div class="chat-bubble bot">Hi there! I'm the Green Valley Farm AI Support Assistant. How can I help you today?</div>
+      </div>
+      <div class="chatbot-suggestions" id="chatbot-suggestions" style="display:flex;gap:8px;padding:8px 16px;overflow-x:auto;background:var(--bg-document);border-top:1px solid var(--border-subtle);flex-shrink:0;">
+        <button class="btn btn-outline btn-sm" style="white-space:nowrap;border-radius:16px;padding:6px 12px;font-size:12px;" onclick="App.sendSuggestedChat('Where is your farm located?')">📍 Location</button>
+        <button class="btn btn-outline btn-sm" style="white-space:nowrap;border-radius:16px;padding:6px 12px;font-size:12px;" onclick="App.sendSuggestedChat('What is your delivery timing?')">🚚 Delivery time</button>
+        <button class="btn btn-outline btn-sm" style="white-space:nowrap;border-radius:16px;padding:6px 12px;font-size:12px;" onclick="App.sendSuggestedChat('Do you sell organic products?')">🌿 Organic?</button>
       </div>
       <div class="chatbot-input-area">
         <input type="text" class="chatbot-input" id="chatbot-input" placeholder="Type your message..." onkeypress="if(event.key === 'Enter') App.sendChatMessage()">
@@ -594,7 +599,7 @@
       </div>
     </div>
     <button class="chatbot-toggle" id="chatbot-toggle" onclick="App.toggleChatbot()" title="Chat with Support">
-      <svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"></path></svg>
+      <span style="font-size:32px;">🤖</span>
     </button>
   </div>
   <script src="/js/api.js?v=20260722-v8"></script>

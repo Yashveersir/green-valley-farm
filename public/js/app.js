@@ -1564,6 +1564,12 @@ const App = {
     }
   },
 
+  async sendSuggestedChat(msg) {
+    document.getElementById('chatbot-input').value = msg;
+    document.getElementById('chatbot-suggestions').style.display = 'none';
+    await this.sendChatMessage();
+  },
+
   async sendChatMessage() {
     const input = document.getElementById('chatbot-input');
     const msg = input.value.trim();

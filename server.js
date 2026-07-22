@@ -343,41 +343,85 @@ Response Style: Friendly, Professional, Clear, Concise, Helpful.
 Scope Enforcement: If a user's question is unrelated to Green Valley Farm, always respond with: "Sorry, I can only assist with Green Valley Farm products, orders, services, and website-related questions. Please ask a Green Valley Farm-related question."
 Never answer unrelated questions under any circumstances.`;
 
-    const messages = [
-      { role: 'system', content: systemPrompt },
-      ...history.map(m => ({ role: m.role, content: m.content })),
-      { role: 'user', content: message }
-    ];
-
+    const geminiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
     const groqKey = process.env.GROQ_API_KEY;
-    if (!groqKey) {
-      console.error('GROQ_API_KEY is not set');
+    if (!geminiKey && !groqKey) {
+      console.error('No AI API keys set');
       return res.status(500).json({ success: false, error: 'Chatbot is currently unavailable.' });
     }
 
-    // Using native fetch to call Groq API (OpenAI compatible)
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${groqKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'llama3-8b-8192',
-        messages: messages,
-        temperature: 0.2,
-        max_tokens: 512,
-      })
-    });
+    let reply = '';
+    let success = false;
 
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error('Groq API Error:', errText);
-      return res.status(500).json({ success: false, error: 'Failed to get response from AI.' });
+    // Try Gemini First
+    if (geminiKey) {
+      try {
+        const geminiHistory = history.map(m => ({
+          role: m.role === 'assistant' ? 'model' : 'user',
+          parts: [{ text: m.content }]
+        }));
+        geminiHistory.push({ role: 'user', parts: [{ text: message }] });
+
+        const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${geminiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            system_instruction: { parts: [{ text: systemPrompt }] },
+            contents: geminiHistory,
+            generationConfig: { temperature: 0.2, maxOutputTokens: 512 }
+          })
+        });
+
+        if (geminiRes.ok) {
+          const geminiData = await geminiRes.json();
+          reply = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          if (reply) success = true;
+        } else {
+          console.error('Gemini API Error:', await geminiRes.text());
+        }
+      } catch (err) {
+        console.error('Gemini fetch failed:', err.message);
+      }
     }
 
-    const data = await response.json();
-    const reply = data.choices[0].message.content;
+    // Fallback to Groq
+    if (!success && groqKey) {
+      try {
+        const messages = [
+          { role: 'system', content: systemPrompt },
+          ...history.map(m => ({ role: m.role, content: m.content })),
+          { role: 'user', content: message }
+        ];
+        
+        const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${groqKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: 'llama3-8b-8192',
+            messages: messages,
+            temperature: 0.2,
+            max_tokens: 512,
+          })
+        });
+
+        if (groqRes.ok) {
+          const groqData = await groqRes.json();
+          reply = groqData.choices?.[0]?.message?.content || '';
+          if (reply) success = true;
+        } else {
+          console.error('Groq API Error:', await groqRes.text());
+        }
+      } catch (err) {
+        console.error('Groq fetch failed:', err.message);
+      }
+    }
+
+    if (!success) {
+      return res.status(500).json({ success: false, error: 'Failed to get response from AI.' });
+    }
 
     res.json({ success: true, reply });
   } catch (err) {
