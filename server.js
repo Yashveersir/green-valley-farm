@@ -343,6 +343,21 @@ Response Style: Friendly, Professional, Clear, Concise, Helpful.
 Scope Enforcement: If a user's question is unrelated to Green Valley Farm, always respond with: "Sorry, I can only assist with Green Valley Farm products, orders, services, and website-related questions. Please ask a Green Valley Farm-related question."
 Never answer unrelated questions under any circumstances.`;
 
+    // ── Inject Dynamic Context into Prompt ──
+    const farmContext = `Farm Name: Green Valley Poultry Farm
+Tagline: Farm-Fresh Poultry, Delivered with Care
+Established: 2018
+Location: Tengrahan, Minapur, Muzaffarpur, Bihar - 843117
+Email: sales.greenvalleyfarm@gmail.com
+Hours: Mon-Sat: 6:00 AM - 8:00 PM, Sun: 7:00 AM - 2:00 PM
+Certifications: Organic Certified, Free-Range, FSSAI Licensed
+Description: At Green Valley Poultry Farm, we raise our birds the traditional way — free-range, naturally fed, and with genuine care. Established in 2018, our farm spans 25 acres of lush green pastures where our poultry roam freely.`;
+
+    const allProducts = store.getAllProducts();
+    const productContext = allProducts.map(p => `- ${p.name} (₹${p.price}) [${p.stock > 0 ? 'In Stock' : 'Out of Stock'}]: ${p.description}`).join('\n');
+    
+    const enrichedSystemPrompt = `${systemPrompt}\n\n[CONTEXTUAL DATA]\nUse the following real-time data to answer the user's questions accurately. DO NOT hallucinate prices or products. If a product is not in this list, say it is not available.\n\nFarm Information:\n${farmContext}\n\nAvailable Products:\n${productContext}`;
+
     const geminiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
     const groqKey = process.env.GROQ_API_KEY;
     if (!geminiKey && !groqKey) {
@@ -357,7 +372,7 @@ Never answer unrelated questions under any circumstances.`;
     if (groqKey) {
       try {
         const messages = [
-          { role: 'system', content: systemPrompt },
+          { role: 'system', content: enrichedSystemPrompt },
           ...history.map(m => ({ role: m.role, content: m.content })),
           { role: 'user', content: message }
         ];
@@ -401,7 +416,7 @@ Never answer unrelated questions under any circumstances.`;
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            system_instruction: { parts: [{ text: systemPrompt }] },
+            system_instruction: { parts: [{ text: enrichedSystemPrompt }] },
             contents: geminiHistory,
             generationConfig: { temperature: 0.2, maxOutputTokens: 512 }
           })
